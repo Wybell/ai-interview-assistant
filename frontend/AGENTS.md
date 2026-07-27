@@ -213,5 +213,5 @@ OpenAPI 是前端接口的正式契约。实现或调整任何联调前，先查
 - 已实现认证、路由守卫、JWT 会话存储、全局 401 退出处理、模型目录与偏好切换、出题、受 Bearer 请求头保护的 fetch SSE 评分、取消评分、错题本详情抽屉、学习进度图表和桌面/移动响应式布局。
 - 普通 API 全部通过 Axios 客户端读取 `ApiResponse.data`；流式评分不使用 URL Token，位于 `src/utils/sse.ts` 的解析逻辑负责处理普通增量、`done` 和 `error` 事件。
 - 已配置 ESLint、Prettier、Vitest、Vue Test Utils 和 Playwright。当前源码验证需要执行 `pnpm format`、`pnpm lint`、`pnpm test:run`、`pnpm build`，并通过 Playwright 在桌面和移动端检查页面。
-- Spring Boot 后端位于 `../backend`。本次构建期间后端 `8082` 未运行，因此页面视觉和流式交互已使用临时浏览器 Mock 验收；登录、Token 失效、模型切换、真实出题、真实评分、错题本和进度仍需在后端运行后完成真实联调。
-- 当前最高优先级：完成代码质量检查、浏览器视觉验收和真实后端联调；通过后更新根目录进度并提交完整前端工程。
+- Spring Boot 后端位于 `../backend`。浏览器视觉和异常状态已使用临时 Mock 验收；之后用户已启动本地后端，并确认 Vite `5173` 到 Spring Boot `8082` 的真实前后端联调成功，数据库连接与注册流程可用。密钥仍只保留在外部本地配置中。
+- 当前最高优先级：前端开发与本地真实联调已完成。后续以独立、可回滚的变更下线 `backend/src/main/resources/static` 中的旧页面及对应兼容接口；在云端发布前仍需保留并完成双用户无重启模型切换和 SSE 断连取消验证。

@@ -715,6 +715,7 @@ Completion criteria:
 - Added the root `README.md` as the repository entry point. It documents the verified backend scope, non-sensitive environment-variable contract, local startup and test commands, API areas, migration rules, and project navigation; later updates complete the Swagger/OpenAPI and JWT usage documentation.
 - Started Swagger/OpenAPI integration by adding `org.springdoc:springdoc-openapi-ui:1.7.0`, which is compatible with Spring Boot `2.7.18`. Maven compile completed successfully; no application instance, Flyway migration, database mutation, or external AI call occurred. The next Swagger step is metadata, JWT Bearer documentation, and API-path configuration.
 - Added `OpenApiConfig`, which registers the API title, version, description, and reusable `bearerAuth` JWT scheme. Maven compile passed with 62 main source files.
+- Local backend start configuration recovery and integration verification (2026-07-27): the completed local configuration now lives in an external per-user directory rather than Maven resources, and the stale `target/classes` copy was removed so Maven cannot package local secrets into the JAR. IDEA now loads it through `SPRING_PROFILES_ACTIVE=local` and `SPRING_CONFIG_ADDITIONAL_LOCATION`; the backend started successfully, and the user confirmed real local frontend-backend integration through Vite `5173` to Spring Boot `8082`, including database-backed registration. No secret was added to source control or documentation.
 
 ### Independent Vue Frontend Update (2026-07-27)
 
@@ -742,7 +743,7 @@ Completion criteria:
 
 ### Current highest priority
 
-The Swagger/OpenAPI phase is complete. Preserve the DeepSeek policy default and do not edit `ai_model` manually in Navicat. The next implementation phase is the independent Vue frontend in `frontend/`; read `frontend/AGENTS.md` first, treat OpenAPI as the source of truth, and use protected JSON APIs rather than deprecated legacy routes. The two-user no-restart preference smoke test and stream-disconnect cancellation smoke test remain required before cloud deployment.
+The local configuration and frontend-backend integration verification are complete. Preserve the DeepSeek policy default and do not edit `ai_model` manually in Navicat. The independent Vue frontend in `frontend/` continues to treat OpenAPI as the source of truth and use protected JSON APIs rather than deprecated legacy routes. The next separately scoped cleanup is retirement of the legacy static pages and their compatibility-only routes; the two-user no-restart preference smoke test and stream-disconnect cancellation smoke test remain required before cloud deployment.
 
 - Vue 3
 - Vite

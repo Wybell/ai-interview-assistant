@@ -10,7 +10,7 @@ AI Interview Assistant is a single Git repository for an AI interview-training p
 - Question generation, normal scoring, SSE scoring, and answer-record persistence have been verified locally.
 - Swagger/OpenAPI now documents authentication, model selection, interview training, legacy compatibility routes, JWT Bearer security, response schemas, and SSE behavior.
 - Local Swagger UI is available at `http://localhost:8082/swagger-ui.html`.
-- The independent Vue 3 frontend is implemented in `frontend/`; its browser visual checks passed with mocked API responses, while live backend integration remains to be run with the local backend online.
+- The independent Vue 3 frontend is implemented in `frontend/`; browser visual checks passed with mocked API responses, and the user has confirmed live local frontend-backend integration through Vite on `5173` and Spring Boot on `8082`.
 
 ## Technology Stack
 
@@ -185,7 +185,7 @@ Flyway migrations are the only source of truth for production schema changes:
 - [Frontend-backend integration notes](docs/frontend-backend-integration.md)
 - [Upgrade plan](docs/project-upgrade-plan.md)
 
-The OpenAPI contract is the source of truth for frontend API integration. The independent Vue frontend is implemented; its next required verification is a complete live run against the locally started backend.
+The OpenAPI contract is the source of truth for frontend API integration. The independent Vue frontend has completed local live integration verification; the next planned phase is a separately reviewed retirement of the legacy static pages and their compatibility-only backend routes.
 
 ## Development Rules
 
