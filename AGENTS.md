@@ -40,7 +40,7 @@
 
 ## 当前项目定位
 
-当前项目是 Spring Boot 单体 Demo：
+当前项目的后端仍是 Spring Boot 单体应用，仓库已为独立前端预留边界：
 
 - 后端：Spring Boot 2.7.18、Java 17、Maven
 - 数据库：MySQL
@@ -48,9 +48,28 @@
 - 缓存：Redis
 - 安全：Spring Security、JWT
 - AI：DashScope
-- 前端：`src/main/resources/static` 下的静态 HTML
+- 前端：独立 Vue 3 工程将位于仓库根目录的 `frontend/`；`backend/src/main/resources/static` 下的静态 HTML 仅保留为历史兼容页面
 
 当前状态更接近“能跑通功能的 Demo”，还不是成熟项目。
+
+## 当前仓库目录结构
+
+当前项目使用单 Git 仓库管理前后端，目录边界如下：
+
+```text
+repository-root/
+  .git/          # 唯一 Git 仓库根目录
+  backend/       # Spring Boot、Maven Wrapper、数据库迁移与后端测试
+  frontend/      # 独立 Vue 3 前端工程，尚未初始化
+  docs/          # 前后端共享架构与集成文档
+  AGENTS.md
+  README.md
+```
+
+- IDEA 只打开 `backend/`；VS Code 只打开 `frontend/`。
+- 所有 Git 命令在仓库根目录执行；不要在 `backend/` 或 `frontend/` 再执行 `git init`。
+- 所有 Maven 命令在 `backend/` 执行，例如 `Set-Location backend; .\mvnw.cmd test`。
+- 历史记录中未加 `backend/` 前缀的旧路径，表示目录重组前的路径；后续新增或修改的路径以此处结构为准。
 
 ## 近期变更记录（2026-07-23）
 
@@ -691,11 +710,27 @@ Completion criteria:
 - Change2Pro question generation, scoring persistence, and true upstream SSE have been verified locally.
 - DeepSeek configuration and model correction are complete locally: V3 is applied, real question generation works, normal scoring works, and scoring persistence uses model ID `1`. The remaining issue is only the final completion stage of real SSE scoring.
 - The DeepSeek SSE score parser now tolerates a balanced JSON object wrapped by Markdown or explanatory text while retaining schema and score-range validation. A real authenticated DeepSeek stream-score retry completed with `event:done`; the returned score was `7`, with no `event:error` or `sse_score_failure` reported. A read-only Navicat query confirmed the newest stream-created `answer_record` has `score_ai_model_id=1`.
-- Added the root `README.md` as the repository entry point. It documents the verified backend scope, non-sensitive environment-variable contract, local startup and test commands, API areas, migration rules, and project navigation; Swagger/OpenAPI remains the next backend documentation step.
+- Added the root `README.md` as the repository entry point. It documents the verified backend scope, non-sensitive environment-variable contract, local startup and test commands, API areas, migration rules, and project navigation; later updates complete the Swagger/OpenAPI and JWT usage documentation.
+- Started Swagger/OpenAPI integration by adding `org.springdoc:springdoc-openapi-ui:1.7.0`, which is compatible with Spring Boot `2.7.18`. Maven compile completed successfully; no application instance, Flyway migration, database mutation, or external AI call occurred. The next Swagger step is metadata, JWT Bearer documentation, and API-path configuration.
+- Added `OpenApiConfig`, which registers the API title, version, description, and reusable `bearerAuth` JWT scheme. Maven compile passed with 62 main source files.
+- Added Springdoc paths and environment switches. Local development enables `/v3/api-docs` and `/swagger-ui.html` by default; production keeps both disabled unless `OPENAPI_ENABLED=true` and `SWAGGER_UI_ENABLED=true` are explicitly supplied.
+- `SecurityConfig` now permits only `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs`, and `/v3/api-docs/**` without JWT. All `/api/**` business routes remain protected by the existing `anyRequest().authenticated()` rule. Targeted `SecurityApiTest` verification passed: 10 tests, 0 failures, 0 errors, with Flyway disabled.
+- Added `OpenApiDocumentationIntegrationTest` as a Spring MVC slice with explicit Springdoc MVC/UI configuration and mocked Controller dependencies. It verifies anonymous `/v3/api-docs` access, API title/version, the reusable HTTP Bearer `bearerAuth` scheme, Swagger UI redirection, and that an anonymous `/api/mistakes` call remains `401`. Targeted verification passed: 3 tests, 0 failures, 0 errors, with Flyway disabled and no database, Redis, or AI invocation.
+- Local browser verification is complete after a backend restart: `/swagger-ui.html` opened successfully, `/v3/api-docs` returned the generated document, and a fresh JWT authorized an authenticated Swagger call successfully.
+- Documented the public authentication APIs with OpenAPI tags, operation summaries, form request bodies, real response-status descriptions, and DTO field schemas. Password is marked `writeOnly`; no credentials or real tokens are embedded in the document. `OpenApiDocumentationIntegrationTest` now verifies the registration/login summaries, form media type, and password schema flag. Targeted verification passed: 3 tests, 0 failures, 0 errors, with Flyway disabled.
+- Documented `AiModelController` as the protected AI model-selection API using class-level `bearerAuth`. The model catalog, effective-preference, and preference-update operations now describe their runtime-availability rules and real `400`, `401`, and `503` outcomes; model DTO schemas explain default versus current-user selection without exposing credentials. `OpenApiDocumentationIntegrationTest` now verifies protected model operations, public authentication operations, and the JSON update request contract. Targeted verification passed: 3 tests, 0 failures, 0 errors, with Flyway disabled.
+- Completed the remaining Swagger/OpenAPI contract for `AiController`. The protected JSON question-generation, synchronous-scoring, mistake-book, and study-progress operations now document JWT authentication, request bodies, response types, and actual `400`, `401`, `502`, and `503` behavior where applicable. Legacy GET question and score routes are marked deprecated without changing runtime behavior.
+- Documented the legacy SSE score stream as `text/event-stream`. Its contract now distinguishes ordinary `data:` deltas, `event: done` with `AiScoreResult` JSON, and `event: error` text. Bearer authentication is the formal mechanism; the deprecated URL `token` query parameter is documented only as old static-page compatibility, and the documented behavior correctly avoids a false ordinary HTTP `401` response.
+- Added schemas and safe examples for `ApiResponse`, question/scoring requests, score results, mistake records, and study-progress records. `OpenApiConfig` now provides reusable typed `ApiResponse` composition schemas so Swagger retains the actual `data` shape instead of erasing generic response types.
+- Expanded `OpenApiDocumentationIntegrationTest` to verify protected JSON operations, deprecated legacy operations, SSE media type/event/auth caveats, typed response references, DTO schemas, and public documentation/auth behavior. Targeted verification passed: 4 tests, 0 failures, 0 errors, with Flyway disabled. Full Maven regression also passed: 91 tests, 0 failures, 0 errors, with Flyway disabled and no database migration, Redis call, or AI call.
+- Updated `README.md` with local Swagger URLs, local/production enablement rules, Swagger JWT authorization instructions, deprecated legacy endpoint status, and the SSE query-token caveat.
+- Reorganized the repository into a single Git root named `AI面试助手`, with `backend/` for the Spring Boot application and `frontend/` reserved for the independent Vue 3 application. The existing Git history and uncommitted work were retained; no commit was created during the structural move. Root documentation and ignore rules now reflect the new command and build-output paths.
+- The requested outer-folder rename is complete. Do not move `backend/`, `frontend/`, or `.git` again when opening the project in IDEA or VS Code.
+- Structural verification ran from `backend/` after the repository move. The current Surefire reports confirm 94 tests with 0 failures and 0 errors; the outer Maven command exceeded the execution-tool wait window only after the reports were written. No Flyway migration, database operation, Redis call, or AI call was performed for this verification.
 
 ### Current highest priority
 
-Do not change the policy default away from DeepSeek or edit `ai_model` manually in Navicat. DeepSeek question generation, normal scoring, and true streaming scoring are now verified locally, including persistence with `score_ai_model_id=1`. Before cloud deployment, complete the two-user no-restart preference smoke test and the stream-disconnect cancellation smoke test.
+The Swagger/OpenAPI phase is complete. Preserve the DeepSeek policy default and do not edit `ai_model` manually in Navicat. The next implementation phase is the independent Vue frontend in `frontend/`, which must treat the OpenAPI contract as the source of truth and use the protected JSON APIs rather than deprecated legacy routes. The two-user no-restart preference smoke test and stream-disconnect cancellation smoke test remain required before cloud deployment.
 
 - Vue 3
 - Vite

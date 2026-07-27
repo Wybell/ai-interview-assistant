@@ -24,13 +24,15 @@
 在项目根目录启动：
 
 ```bash
+cd backend
 ./mvnw spring-boot:run
 ```
 
 Windows：
 
-```bash
-mvnw.cmd spring-boot:run
+```powershell
+Set-Location backend
+.\mvnw.cmd spring-boot:run
 ```
 
 默认端口：

@@ -1,6 +1,6 @@
 # AI Interview Assistant
 
-AI Interview Assistant is a Spring Boot backend for Java interview practice. It supports authenticated users, AI-generated questions, answer scoring, mistake review, study progress, per-user AI model selection, and true upstream SSE scoring output.
+AI Interview Assistant is a single Git repository for an AI interview-training platform. The existing Spring Boot backend supports authenticated users, AI-generated questions, answer scoring, mistake review, study progress, per-user AI model selection, and true upstream SSE scoring output. The Vue frontend will be developed as an independent application in this repository.
 
 ## Current Status
 
@@ -8,7 +8,9 @@ AI Interview Assistant is a Spring Boot backend for Java interview practice. It 
 - The default model is DeepSeek `deepseek-v4-flash`.
 - Change2Pro GPT-5.6 Luna is an optional model that users can select without restarting the backend.
 - Question generation, normal scoring, SSE scoring, and answer-record persistence have been verified locally.
-- Swagger/OpenAPI and the independent Vue frontend have not been added yet.
+- Swagger/OpenAPI now documents authentication, model selection, interview training, legacy compatibility routes, JWT Bearer security, response schemas, and SSE behavior.
+- Local Swagger UI is available at `http://localhost:8082/swagger-ui.html`.
+- The `frontend/` directory is reserved for the independent Vue frontend; the Vue project has not been scaffolded yet.
 
 ## Technology Stack
 
@@ -25,28 +27,20 @@ AI Interview Assistant is a Spring Boot backend for Java interview practice. It 
 ## Project Layout
 
 ```text
-src/main/java/com/example/aiinterviewassistant/
-  client/       AI provider clients and SSE event parsing
-  common/       Shared API response model
-  config/       Spring, security, AI, HTTP, and SSE configuration
-  controller/   HTTP and SSE entry points
-  dto/          Request and response DTOs
-  entity/       MySQL table mappings
-  exception/    Business exceptions and global error handling
-  mapper/       MyBatis-Plus data access interfaces
-  model/        Internal immutable models
-  security/     JWT authentication and security error handling
-  service/      Business services and implementations
-  sse/          SSE transport adapter
-  utils/        Existing JWT and request-user utilities
+backend/                         Spring Boot backend; open this folder in IntelliJ IDEA
+  .mvn/                          Maven Wrapper files
+  database/local/                Local-only destructive reset scripts
+  pom.xml
+  mvnw.cmd
+  src/main/java/                 Application source
+  src/main/resources/db/migration/ Flyway migrations
+  src/main/resources/static/     Legacy static pages, not the production frontend
+  src/test/                      Unit, MVC, security, client, service, and SSE tests
 
-src/main/resources/
-  db/migration/ Flyway migrations
-  static/       Legacy static HTML pages; not the future production frontend
-
-src/test/       Unit, MVC, security, client, service, and SSE tests
-database/local/ Local-only destructive reset scripts
-docs/           Architecture and upgrade notes
+frontend/                        Reserved for the Vue 3 application; open this folder in VS Code
+docs/                            Cross-project architecture and integration notes
+AGENTS.md                        Collaboration rules and current project status
+README.md                        Repository entry point
 ```
 
 ## Prerequisites
@@ -77,6 +71,8 @@ All secrets are external configuration. Do not commit passwords, JWT secrets, AP
 | `CHANGE2PRO_REASONING_EFFORT` | Change2Pro reasoning level | Defaults to `low` |
 | `CHANGE2PRO_DISABLE_RESPONSE_STORAGE` | Disable relay response storage | Defaults to `true` |
 | `FLYWAY_ENABLED` | Enable Flyway migrations at startup | Defaults to `false` |
+| `OPENAPI_ENABLED` | Enable the OpenAPI JSON document | Defaults to `true` locally and `false` in the production profile |
+| `SWAGGER_UI_ENABLED` | Enable Swagger UI | Defaults to `true` locally and `false` in the production profile |
 
 The application no longer uses `AI_PROVIDER`, `DEEPSEEK_MODEL`, or `CHANGE2PRO_MODEL`. Provider connection settings come from environment variables; selectable provider/model pairs come from the `ai_model` database allowlist and the user's saved preference.
 
@@ -90,6 +86,7 @@ $env:JWT_SECRET = "<jwt-secret-with-at-least-32-bytes>"
 $env:DEEPSEEK_API_KEY = "<deepseek-api-key>"
 $env:FLYWAY_ENABLED = "true"
 
+Set-Location backend
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -102,8 +99,22 @@ Use `FLYWAY_ENABLED=true` only when the target database is intentionally prepare
 Run the full test suite without applying Flyway migrations:
 
 ```powershell
+Set-Location backend
 .\mvnw.cmd -Dspring.flyway.enabled=false test
 ```
+
+## OpenAPI and Swagger
+
+With the local application running, open:
+
+- Swagger UI: `http://localhost:8082/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8082/v3/api-docs`
+
+Swagger UI and the OpenAPI document are public documentation endpoints. Business APIs remain protected. Use the login endpoint first, then click `Authorize` in Swagger UI and enter the JWT value; Swagger adds the `Bearer` prefix for the protected JSON APIs.
+
+The production profile disables both documentation endpoints by default. Enable them only in an intentionally protected environment by setting both `OPENAPI_ENABLED=true` and `SWAGGER_UI_ENABLED=true`.
+
+The JSON interview APIs are the formal frontend contract. The old `GET /api/question/ask`, `GET /api/question/score`, and `GET /api/question/score/stream` endpoints are marked deprecated in Swagger and remain only for the legacy static pages.
 
 ## Main API Areas
 
@@ -126,7 +137,7 @@ All business APIs use the response shape below:
 - `GET /api/mistakes`
 - `GET /api/progress`
 
-Most APIs require `Authorization: Bearer <token>`. The current legacy SSE endpoint accepts its JWT through a `token` query parameter for static-page compatibility; this is not the intended production authentication design for the future frontend.
+Most APIs require `Authorization: Bearer <token>`. The legacy SSE endpoint also recognizes a deprecated `token` query parameter only for the old static page. New frontend code must not put JWTs in URLs. Its successful stream contains ordinary `data:` text chunks followed by `event: done` with an `AiScoreResult` JSON payload; failures are delivered as `event: error` text. An unauthenticated stream sends an in-stream login message and completes instead of returning a normal HTTP `401` response.
 
 ## Database Migrations
 
@@ -136,7 +147,7 @@ Flyway migrations are the only source of truth for production schema changes:
 - `V2__add_user_ai_model_selection.sql`: model allowlist, policy, and user preference
 - `V3__correct_deepseek_v4_flash_model_code.sql`: corrected the DeepSeek model identifier in place
 
-`database/local/reset_interview_db.sql` is local-only and destructive. Never use it against a cloud or production database.
+`backend/database/local/reset_interview_db.sql` is local-only and destructive. Never use it against a cloud or production database.
 
 ## Documentation
 
@@ -147,7 +158,7 @@ Flyway migrations are the only source of truth for production schema changes:
 - [Frontend-backend integration notes](docs/frontend-backend-integration.md)
 - [Upgrade plan](docs/project-upgrade-plan.md)
 
-The architecture notes are being refreshed as the API contract is finalized. Swagger/OpenAPI is the next planned backend documentation step.
+The OpenAPI contract is the current source of truth for frontend API integration. The next project phase is the independent Vue frontend.
 
 ## Development Rules
 
