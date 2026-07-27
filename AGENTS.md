@@ -360,7 +360,7 @@ Jenkins：
 - Added `DeepSeekAiClientTest` for Chat Completions request construction, response extraction from `choices[0].message.content`, non-2xx handling, and incomplete configuration rejection before any HTTP request is sent.
 - Verification passed: the DeepSeek client test passed (3 tests), a Spring context startup with `app.ai.provider=deepseek` and test-only placeholder configuration passed, and the full regression passed with 44 tests, 0 failures, and 0 errors while Flyway was disabled.
 - The remaining DeepSeek work is a user-controlled local smoke test after valid environment variables are configured; it should verify question generation and scoring without exposing the API key.
-- The approved product requirement is now runtime per-user AI model selection with no backend restart. A user with no explicit preference falls back to the system default `deepseek / v4-flash`; users select only from an allowlisted catalog and never submit raw provider names, model codes, or credentials.
+- The approved product requirement is now runtime per-user AI model selection with no backend restart. A user with no explicit preference falls back to the system default `deepseek / deepseek-v4-flash`; users select only from an allowlisted catalog and never submit raw provider names, model codes, or credentials.
 
 ## Runtime User AI Model Selection Plan (2026-07-25)
 
@@ -369,12 +369,12 @@ Jenkins：
 - The selection is a persistent user preference, not a process-wide `AI_PROVIDER` switch and not a request-level free-form override.
 - API keys, endpoints, and provider authentication remain external configuration. Database rows contain only non-sensitive provider and model identifiers.
 - A user may read and update only their own preference. The initial version has no public model catalog administration endpoint because the project does not yet have an administrator role model.
-- New users and users without a preference use the policy default `deepseek / v4-flash`. A disabled or unavailable model must not be selectable by new requests.
+- New users and users without a preference use the policy default `deepseek / deepseek-v4-flash`. A disabled or unavailable model must not be selectable by new requests.
 
 ### Data Contract and Migration Rules
 
 - `V2__add_user_ai_model_selection.sql` is the next production schema migration. It creates `ai_model`, the singleton `ai_model_policy`, and `user_ai_preference`.
-- `ai_model` is the allowlist of selectable models. V2 seeds `deepseek / v4-flash` as the policy default and the verified `change2proapi / gpt-5.6-luna` as another selectable catalog item.
+- `ai_model` is the allowlist of selectable models. V2 initially seeded `deepseek / v4-flash`; V3 corrects that existing row in place to the official `deepseek / deepseek-v4-flash` identifier. `change2proapi / gpt-5.6-luna` remains another selectable catalog item.
 - `user_ai_preference.user_id` is both the primary key and user foreign key, enforcing at most one explicit preference per user at the database level.
 - `answer_record.score_ai_model_id` is nullable for legacy records and will record the actual scoring model for all new records after the runtime routing phase. Historical records are not falsely backfilled.
 - V1 is immutable because it has already run locally. V2 must be applied by Flyway as part of the matching backend release; it must not be executed manually in production through Navicat.
@@ -404,7 +404,7 @@ Jenkins：
 - All provider clients are now Spring-managed at the same time. `AiClientRegistry` routes each invocation by the effective model provider and converts unavailable client configuration into a non-sensitive `503` response.
 - The temporary `AI_PROVIDER` compatibility path was subsequently removed. Provider/model identity now comes only from the database allowlist and resolved user preference; provider connection settings remain external configuration.
 - Phase 1 source verification passed: Maven full regression ran with `spring.flyway.enabled=false` and completed 44 tests with 0 failures and 0 errors.
-- Local migration verification status: the user started the application with `FLYWAY_ENABLED=true`, Flyway successfully applied V2 to the confirmed local database, and Navicat shows the new tables. The user then verified the model seed rows, the `deepseek / v4-flash` default policy, `answer_record.score_ai_model_id`, and the expected foreign keys through read-only SQL queries. No cloud database operation has been executed.
+- Local migration verification status: the user started the application with `FLYWAY_ENABLED=true`, Flyway successfully applied V2 to the confirmed local database, and Navicat shows the new tables. The user then verified the initial V2 `deepseek / v4-flash` default policy, `answer_record.score_ai_model_id`, and the expected foreign keys through read-only SQL queries. V3 is pending the next local application restart. No cloud database operation has been executed.
 - Added `AiModel`, `AiModelPolicy`, and `UserAiPreference` persistence mappings with their MyBatis-Plus mappers; `AnswerRecord` now maps the nullable `scoreAiModelId` column introduced by V2.
 - Added immutable `EffectiveAiModel`, `UserAiPreferenceService`, and `AiModelCatalogService`. Effective model resolution now prefers an enabled user preference and otherwise falls back to the enabled policy default; a broken default policy fails with a non-sensitive server error.
 - Updating a preference validates that the requested catalog model exists and is enabled, then uses a MySQL atomic `INSERT ... ON DUPLICATE KEY UPDATE` mapper method to avoid a select-then-insert race.
@@ -414,7 +414,7 @@ Jenkins：
 - No security allowlist changed: the existing `anyRequest().authenticated()` rule protects all three routes. Controllers delegate to catalog/preference Services and do not access mappers or credentials directly.
 - Added `AiModelControllerTest` covering missing-token `401`, catalog retrieval, effective-preference retrieval, current-user-only update delegation, non-positive `modelId` validation, and a disabled-model business error.
 - Verification passed with Flyway disabled: the new MVC test slice passed (6 tests) and the full Maven regression passed with 61 tests, 0 failures, and 0 errors. No local or cloud migration was executed during tests.
-- User-controlled local HTTP smoke verification passed against the confirmed local `interview_db`: authenticated model catalog and default-preference reads returned the expected `deepseek / v4-flash` model, then `PUT /api/users/me/ai-preference` persisted model ID `2`; a subsequent authenticated read returned `change2proapi / gpt-5.6-luna` with `defaultSelection=false`. No cloud database operation was performed.
+- User-controlled local HTTP smoke verification passed against the confirmed local `interview_db`: authenticated model catalog and default-preference reads returned the then-current V2 `deepseek / v4-flash` model, then `PUT /api/users/me/ai-preference` persisted model ID `2`; a subsequent authenticated read returned `change2proapi / gpt-5.6-luna` with `defaultSelection=false`. No cloud database operation was performed.
 
 - Added `AiClient` and `DashScopeAiClient`, moving DashScope request construction, authentication headers, HTTP status handling, and response-text extraction out of `AiService`.
 - Added `HttpClientConfig` so the DashScope HTTP client is Spring-managed rather than manually constructed inside a business service.
@@ -649,9 +649,52 @@ Completion criteria:
 - Added client SSE parsing tests for DeepSeek, Change2Pro, and DashScope, plus registry, Service, persistence, and SSE adapter coverage. Maven reported `BUILD SUCCESS`: 82 tests passed with 0 failures and 0 errors using `-Dspring.flyway.enabled=false`.
 - No application instance was started for a real model request, no external AI Provider was called, no Flyway migration ran, and no database data changed. A real authenticated browser smoke test remains necessary to verify each relay's actual event format and cancellation behavior; Change2Pro parsing follows the standard OpenAI Responses SSE event contract.
 
+### Change2Pro Real Stream Verification (2026-07-27)
+
+- Change2Pro was selected temporarily to verify the real streaming path. It is not the product's policy default.
+- A real authenticated `curl.exe -N` call to `/api/question/score/stream` produced multiple upstream `data:` chunks before `event: done`, proving that Change2Pro is now delivering true upstream SSE rather than the removed character-animation behavior.
+- The server emitted the final parsed `done` payload with score `7`; Navicat confirmed the matching newest `answer_record` row has `tag=HashMap`, `score=7`, and `score_ai_model_id=2`.
+- The policy default remains DeepSeek. After V3 is applied, the same policy model row will resolve as `deepseek / deepseek-v4-flash`; `change2proapi / gpt-5.6-luna` remains an enabled user-selectable option. No cloud database was touched.
+
+### DeepSeek Upstream Failure Diagnostics (2026-07-27)
+
+- DeepSeek connection settings are configured externally in the IDEA run configuration. Before V3, the authenticated catalog exposed the stale V2 value `deepseek / v4-flash` and the real upstream request returned `400`.
+- A live DeepSeek question request returned the public non-sensitive `502` response. The selected client reached the upstream request stage, but the previous implementation discarded the upstream HTTP status, so the root cause remains unknown until the retry below.
+- `DeepSeekAiClient` now logs only a safe operation name and upstream HTTP status for non-2xx responses, for example `deepseek_upstream_failure operation=generate status=401`. IO/configuration failures use a safe category only. Logs never include API keys, Authorization headers, prompts, answers, or upstream response bodies.
+- Added coverage for non-2xx streaming calls. The focused `DeepSeekAiClientTest` suite passed 5 tests with 0 failures and 0 errors using `-Dspring.flyway.enabled=false`.
+
+### DeepSeek V4 Flash Model Identifier Correction (2026-07-27)
+
+- The official DeepSeek API documentation confirms that the direct Chat Completions model identifier is `deepseek-v4-flash`; the configured `/chat/completions` endpoint is correct. The earlier `400` was caused by the stale catalog value `v4-flash`.
+- Added immutable Flyway migration `V3__correct_deepseek_v4_flash_model_code.sql`. It updates the existing DeepSeek catalog row in place, so the policy default, persisted user preferences, and historical `answer_record.score_ai_model_id` references retain their current IDs.
+- V2 remains unchanged because it has already been applied locally. The user restarted the local application with `FLYWAY_ENABLED=true`; Flyway applied V3 and the authenticated model catalog now returns `deepseek-v4-flash` for model ID `1`.
+- Focused routing, catalog, preference, controller, and DeepSeek client verification passed: 41 tests, 0 failures, 0 errors, with Flyway disabled.
+- Full Maven regression passed: 84 tests, 0 failures, 0 errors, with Flyway disabled. No local or cloud database migration was executed during test verification.
+
+### DeepSeek SSE Completion Diagnostics (2026-07-27)
+
+- A real DeepSeek SSE score request delivered many upstream deltas to the client, proving upstream streaming and delta forwarding work. It then emitted the named `error` event instead of `done`, so the final score JSON parsing, persistence, or completion delivery stage still requires diagnosis.
+- DeepSeek synchronous question generation and synchronous scoring both succeeded after V3; the normal scoring request also inserted an `answer_record` with `score_ai_model_id=1`. The stream-specific error is therefore not a missing model configuration or a general database availability failure.
+- `InterviewScoreSseAdapter` now separates safe failure logging into `task_submission`, `score_generation`, and `completion_delivery` phases. Logs contain only the phase, exception class, and `BusinessException` code where present; they never include exception messages, prompts, answers, model output, JWTs, or API keys.
+- Added an adapter test that uses sensitive simulated exception/input values and verifies they are absent from log output. Targeted adapter verification passed 4 tests; the latest full Maven regression passed 84 tests, 0 failures, 0 errors, with Flyway disabled.
+
+### DeepSeek SSE Score JSON Normalization (2026-07-27)
+
+- The `score_generation` failure was isolated to final score-result parsing after upstream DeepSeek deltas had already been delivered. `AiService` now reinforces the exact-JSON output requirement and safely extracts the first balanced JSON object from Markdown-fenced or prose-wrapped model output before parsing it.
+- The score contract remains strict: the root must be an object with numeric integral `score`, textual `correct_answer`, and textual `suggestion`; scores outside `0` through `10` and malformed or incomplete JSON still return the existing non-sensitive `502` failure.
+- Added focused `AiServiceTest` coverage for Markdown code fences, leading/trailing prose, braces within JSON string values, and malformed JSON. The focused suite passed 8 tests; full Maven regression passed 87 tests with 0 failures and 0 errors using `-Dspring.flyway.enabled=false`.
+- This change does not alter model selection, database schema, persistence rules, provider credentials, or logging policy. After a backend restart, a real DeepSeek stream-score request produced upstream deltas followed by `event:done` with score `7`, confirming the parsing and completion path locally.
+
+### Current actual progress (2026-07-27)
+
+- Runtime per-user model switching is complete and verified without a backend restart. The product default is `deepseek / deepseek-v4-flash`; Change2Pro GPT-5.6 Luna is optional.
+- Change2Pro question generation, scoring persistence, and true upstream SSE have been verified locally.
+- DeepSeek configuration and model correction are complete locally: V3 is applied, real question generation works, normal scoring works, and scoring persistence uses model ID `1`. The remaining issue is only the final completion stage of real SSE scoring.
+- The DeepSeek SSE score parser now tolerates a balanced JSON object wrapped by Markdown or explanatory text while retaining schema and score-range validation. A real authenticated DeepSeek stream-score retry completed with `event:done`; the returned score was `7`, with no `event:error` or `sse_score_failure` reported. A read-only Navicat query confirmed the newest stream-created `answer_record` has `score_ai_model_id=1`.
+
 ### Current highest priority
 
-Do not start Swagger, Vue migration, or Controller resource splitting yet. Runtime per-user AI model routing and true SSE scoring are complete in the backend and verified by the 82-test regression. The next priority is a user-approved authenticated local smoke test against the real DeepSeek and Change2Pro services, because provider-specific streaming event formats and disconnect cancellation cannot be proven with mocked HTTP responses. The two-user preference smoke test remains a required release gate before any cloud deployment.
+Do not change the policy default away from DeepSeek or edit `ai_model` manually in Navicat. DeepSeek question generation, normal scoring, and true streaming scoring are now verified locally, including persistence with `score_ai_model_id=1`. Before cloud deployment, complete the two-user no-restart preference smoke test and the stream-disconnect cancellation smoke test.
 
 - Vue 3
 - Vite
@@ -699,7 +742,7 @@ Do not start Swagger, Vue migration, or Controller resource splitting yet. Runti
 - 遇到复杂任务，先拆成 15 到 40 分钟可以完成的小任务。
 - 每一步都要能验证。
 
-## 当前最高优先级
+## 历史优先级（已被上方最新状态取代）
 
 配置外置化、登录注册响应统一、Service 分层抽取、SSE 传输编排、JWT 认证、`UserContext` 上下文迁移、业务接口鉴权和统一安全响应已经完成。用户当前决定优先完成数据库重构设计和本地验证，再进入 OpenAPI 与前后端分离；静态前端仅保留必要维护。
 
@@ -759,8 +802,8 @@ V1 明确不创建以下表：
 ```text
 src/main/resources/db/migration/
   V1__create_core_schema.sql
-  V2__add_answer_record_indexes.sql
-  V3__add_interview_session.sql
+  V2__add_user_ai_model_selection.sql
+  V3__correct_deepseek_v4_flash_model_code.sql
 
 database/local/
   reset_interview_db.sql

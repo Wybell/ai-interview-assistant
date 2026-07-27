@@ -41,18 +41,18 @@ class AiClientRegistryTest {
     @Test
     void shouldRouteRequestedProviderAndModelCode() {
         when(deepSeekClient.isConfigured()).thenReturn(true);
-        when(deepSeekClient.generate("v4-flash", "system prompt", "user content"))
+        when(deepSeekClient.generate("deepseek-v4-flash", "system prompt", "user content"))
                 .thenReturn("generated text");
 
         String actual = aiClientRegistry.generate(
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "system prompt",
                 "user content"
         );
 
         assertThat(actual).isEqualTo("generated text");
-        verify(deepSeekClient).generate("v4-flash", "system prompt", "user content");
+        verify(deepSeekClient).generate("deepseek-v4-flash", "system prompt", "user content");
     }
 
     @Test
@@ -81,7 +81,7 @@ class AiClientRegistryTest {
         List<String> deltas = new ArrayList<>();
         when(deepSeekClient.isConfigured()).thenReturn(true);
         when(deepSeekClient.generateStream(
-                org.mockito.ArgumentMatchers.eq("v4-flash"),
+                org.mockito.ArgumentMatchers.eq("deepseek-v4-flash"),
                 org.mockito.ArgumentMatchers.eq("system prompt"),
                 org.mockito.ArgumentMatchers.eq("user content"),
                 any(AiTextDeltaConsumer.class)
@@ -94,7 +94,7 @@ class AiClientRegistryTest {
 
         String actual = aiClientRegistry.generateStream(
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "system prompt",
                 "user content",
                 deltas::add
@@ -103,7 +103,7 @@ class AiClientRegistryTest {
         assertThat(actual).isEqualTo("generated text");
         assertThat(deltas).containsExactly("generated ", "text");
         verify(deepSeekClient).generateStream(
-                org.mockito.ArgumentMatchers.eq("v4-flash"),
+                org.mockito.ArgumentMatchers.eq("deepseek-v4-flash"),
                 org.mockito.ArgumentMatchers.eq("system prompt"),
                 org.mockito.ArgumentMatchers.eq("user content"),
                 any(AiTextDeltaConsumer.class)
@@ -142,10 +142,10 @@ class AiClientRegistryTest {
 
     @Test
     void shouldRejectProviderWithIncompleteRuntimeConfiguration() {
-        assertThat(aiClientRegistry.isModelAvailable("deepseek", "v4-flash")).isFalse();
+        assertThat(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).isFalse();
         assertThatThrownBy(() -> aiClientRegistry.generate(
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "system prompt",
                 "user content"
         ))
@@ -153,18 +153,18 @@ class AiClientRegistryTest {
                 .extracting(exception -> ((BusinessException) exception).getCode())
                 .isEqualTo(503);
 
-        verify(deepSeekClient, never()).generate("v4-flash", "system prompt", "user content");
+        verify(deepSeekClient, never()).generate("deepseek-v4-flash", "system prompt", "user content");
     }
 
     @Test
     void shouldHideProviderConfigurationErrors() {
         when(deepSeekClient.isConfigured()).thenReturn(true);
-        when(deepSeekClient.generate("v4-flash", "system prompt", "user content"))
+        when(deepSeekClient.generate("deepseek-v4-flash", "system prompt", "user content"))
                 .thenThrow(new BusinessException(500, "provider configuration missing"));
 
         assertThatThrownBy(() -> aiClientRegistry.generate(
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "system prompt",
                 "user content"
         ))

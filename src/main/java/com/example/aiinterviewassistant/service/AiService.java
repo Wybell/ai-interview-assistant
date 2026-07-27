@@ -21,7 +21,8 @@ public class AiService {
             + "必须严格返回 JSON，格式如下："
             + "{\"score\": 8, "
             + "\"correct_answer\": \"答案要点\", "
-            + "\"suggestion\": \"改进建议\"}";
+            + "\"suggestion\": \"改进建议\"}"
+            + " Return exactly one JSON object. Do not use Markdown code fences or add any other text.";
 
     private final AiClientRegistry aiClientRegistry;
     private final ObjectMapper objectMapper;
@@ -66,14 +67,10 @@ public class AiService {
 
     private AiScoreResult parseScoreResult(String resultText) {
         try {
-            JsonNode scoreNode = objectMapper.readTree(resultText);
-            if (!scoreNode.has("score")
-                    || !scoreNode.has("correct_answer")
-                    || !scoreNode.has("suggestion")) {
-                throw new BusinessException(502, "AI 评分结果格式错误");
-            }
+            JsonNode scoreNode = objectMapper.readTree(extractFirstJsonObject(resultText));
+            validateScoreResult(scoreNode);
 
-            int score = scoreNode.get("score").asInt();
+            int score = scoreNode.get("score").intValue();
             if (score < 0 || score > 10) {
                 throw new BusinessException(502, "AI 评分结果超出范围");
             }
@@ -88,6 +85,67 @@ public class AiService {
         } catch (Exception exception) {
             throw new BusinessException(502, "AI 评分结果解析失败");
         }
+    }
+
+    private void validateScoreResult(JsonNode scoreNode) {
+        if (scoreNode == null
+                || !scoreNode.isObject()
+                || !scoreNode.has("score")
+                || !scoreNode.has("correct_answer")
+                || !scoreNode.has("suggestion")) {
+            throw new BusinessException(502, "AI 评分结果格式错误");
+        }
+
+        JsonNode score = scoreNode.get("score");
+        JsonNode correctAnswer = scoreNode.get("correct_answer");
+        JsonNode suggestion = scoreNode.get("suggestion");
+        if (!score.isIntegralNumber()
+                || !score.canConvertToInt()
+                || !correctAnswer.isTextual()
+                || !suggestion.isTextual()) {
+            throw new BusinessException(502, "AI 评分结果格式错误");
+        }
+    }
+
+    private String extractFirstJsonObject(String resultText) {
+        if (resultText == null || resultText.isBlank()) {
+            throw new BusinessException(502, "AI 评分结果解析失败");
+        }
+
+        int objectStart = resultText.indexOf('{');
+        if (objectStart < 0) {
+            throw new BusinessException(502, "AI 评分结果解析失败");
+        }
+
+        boolean inString = false;
+        boolean escaped = false;
+        int objectDepth = 0;
+        for (int index = objectStart; index < resultText.length(); index++) {
+            char currentCharacter = resultText.charAt(index);
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (currentCharacter == '\\') {
+                    escaped = true;
+                } else if (currentCharacter == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (currentCharacter == '"') {
+                inString = true;
+            } else if (currentCharacter == '{') {
+                objectDepth++;
+            } else if (currentCharacter == '}') {
+                objectDepth--;
+                if (objectDepth == 0) {
+                    return resultText.substring(objectStart, index + 1);
+                }
+            }
+        }
+
+        throw new BusinessException(502, "AI 评分结果解析失败");
     }
 
     private String generate(

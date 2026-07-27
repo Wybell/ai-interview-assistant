@@ -3,8 +3,11 @@ package com.example.aiinterviewassistant.sse;
 import com.example.aiinterviewassistant.client.AiStreamCancelledException;
 import com.example.aiinterviewassistant.config.SseProperties;
 import com.example.aiinterviewassistant.dto.AiScoreResult;
+import com.example.aiinterviewassistant.exception.BusinessException;
 import com.example.aiinterviewassistant.service.InterviewService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Component;
@@ -17,6 +20,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 public class InterviewScoreSseAdapter {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(InterviewScoreSseAdapter.class);
 
     private final AsyncTaskExecutor sseTaskExecutor;
     private final InterviewService interviewService;
@@ -49,6 +54,7 @@ public class InterviewScoreSseAdapter {
             );
             session.setTask(task);
         } catch (RuntimeException exception) {
+            logFailure("task_submission", exception);
             sendFailure(emitter, session);
         }
         return emitter;
@@ -72,28 +78,41 @@ public class InterviewScoreSseAdapter {
             String question,
             String answer,
             String tag) {
+        AiScoreResult scoreResult;
         try {
-            AiScoreResult scoreResult = interviewService.streamScoreAnswer(
+            scoreResult = interviewService.streamScoreAnswer(
                     userId,
                     question,
                     answer,
                     tag,
                     delta -> sendDelta(emitter, session, delta)
             );
-            if (session.isCancelled()) {
-                return;
+        } catch (AiStreamCancelledException exception) {
+            if (!session.isCancelled()) {
+                logFailure("score_generation", exception);
+                sendFailure(emitter, session);
             }
+            return;
+        } catch (Exception exception) {
+            logFailure("score_generation", exception);
+            if (!session.isCancelled()) {
+                sendFailure(emitter, session);
+            }
+            return;
+        }
 
+        if (session.isCancelled()) {
+            return;
+        }
+
+        try {
             emitter.send(SseEmitter.event()
                     .name("done")
                     .data(objectMapper.writeValueAsString(scoreResult)));
             session.finish();
             emitter.complete();
-        } catch (AiStreamCancelledException exception) {
-            if (!session.isCancelled()) {
-                sendFailure(emitter, session);
-            }
         } catch (Exception exception) {
+            logFailure("completion_delivery", exception);
             if (!session.isCancelled()) {
                 sendFailure(emitter, session);
             }
@@ -125,8 +144,27 @@ public class InterviewScoreSseAdapter {
             emitter.send(SseEmitter.event().name("error").data("评分失败，请稍后重试"));
             emitter.complete();
         } catch (IOException exception) {
+            logFailure("failure_delivery", exception);
             emitter.completeWithError(exception);
         }
+    }
+
+    private void logFailure(String phase, Exception exception) {
+        if (exception instanceof BusinessException businessException) {
+            LOGGER.warn(
+                    "sse_score_failure phase={} exception={} code={}",
+                    phase,
+                    exception.getClass().getSimpleName(),
+                    businessException.getCode()
+            );
+            return;
+        }
+
+        LOGGER.warn(
+                "sse_score_failure phase={} exception={}",
+                phase,
+                exception.getClass().getSimpleName()
+        );
     }
 
     private static final class StreamSession {

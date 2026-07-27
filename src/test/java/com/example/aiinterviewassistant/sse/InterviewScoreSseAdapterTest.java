@@ -1,8 +1,12 @@
 package com.example.aiinterviewassistant.sse;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.example.aiinterviewassistant.client.AiTextDeltaConsumer;
 import com.example.aiinterviewassistant.config.SseProperties;
 import com.example.aiinterviewassistant.dto.AiScoreResult;
+import com.example.aiinterviewassistant.exception.BusinessException;
 import com.example.aiinterviewassistant.service.InterviewService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -10,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -139,5 +144,43 @@ class InterviewScoreSseAdapterTest {
                 any(AiTextDeltaConsumer.class)
         );
         verifyNoInteractions(objectMapper);
+    }
+
+    @Test
+    void shouldLogSafeBusinessFailureDetails() {
+        AtomicReference<Runnable> submittedTask = new AtomicReference<>();
+        when(sseProperties.getScoreTimeoutMillis()).thenReturn(45_000L);
+        when(interviewService.streamScoreAnswer(
+                eq(1L),
+                eq("Private question"),
+                eq("Private answer"),
+                eq("Java"),
+                any(AiTextDeltaConsumer.class)
+        )).thenThrow(new BusinessException(502, "secret-token"));
+        doAnswer(invocation -> {
+            submittedTask.set(invocation.getArgument(0));
+            return CompletableFuture.completedFuture(null);
+        }).when(sseTaskExecutor).submit(any(Runnable.class));
+
+        Logger logger = (Logger) LoggerFactory.getLogger(InterviewScoreSseAdapter.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            sseAdapter.streamScore(1L, "Private question", "Private answer", "Java");
+
+            assertThat(submittedTask.get()).isNotNull();
+            assertThatCode(() -> submittedTask.get().run()).doesNotThrowAnyException();
+
+            assertThat(appender.list)
+                    .anySatisfy(event -> assertThat(event.getFormattedMessage())
+                            .isEqualTo("sse_score_failure phase=score_generation "
+                                    + "exception=BusinessException code=502"))
+                    .allSatisfy(event -> assertThat(event.getFormattedMessage())
+                            .doesNotContain("secret-token", "Private question", "Private answer"));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
     }
 }

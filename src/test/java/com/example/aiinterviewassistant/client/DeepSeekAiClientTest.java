@@ -37,6 +37,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DeepSeekAiClientTest {
 
+    private static final String MODEL_CODE = "deepseek-v4-flash";
+
     @Mock
     private HttpClient httpClient;
 
@@ -75,7 +77,7 @@ class DeepSeekAiClientTest {
         when(httpClient.<String>send(any(HttpRequest.class), any())).thenReturn(httpResponse);
 
         String result = aiClient.generate(
-                "v4-flash",
+                MODEL_CODE,
                 "You are an interviewer.",
                 "Ask about JVM."
         );
@@ -92,7 +94,7 @@ class DeepSeekAiClientTest {
         assertThat(request.headers().firstValue("Content-Type")).hasValue("application/json");
 
         JsonNode requestBody = objectMapper.readTree(readRequestBody(request));
-        assertThat(requestBody.path("model").asText()).isEqualTo("v4-flash");
+        assertThat(requestBody.path("model").asText()).isEqualTo(MODEL_CODE);
         assertThat(requestBody.path("stream").asBoolean()).isFalse();
         assertThat(requestBody.path("messages").get(0).path("role").asText()).isEqualTo("system");
         assertThat(requestBody.path("messages").get(0).path("content").asText()).isEqualTo("You are an interviewer.");
@@ -105,7 +107,24 @@ class DeepSeekAiClientTest {
         when(httpResponse.statusCode()).thenReturn(401);
         when(httpClient.<String>send(any(HttpRequest.class), any())).thenReturn(httpResponse);
 
-        assertThatThrownBy(() -> aiClient.generate("v4-flash", "System prompt", "User prompt"))
+        assertThatThrownBy(() -> aiClient.generate(MODEL_CODE, "System prompt", "User prompt"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getCode())
+                .isEqualTo(502);
+    }
+
+    @Test
+    void shouldRejectNonSuccessfulStreamingChatCompletionsCall() throws Exception {
+        when(streamHttpResponse.statusCode()).thenReturn(429);
+        when(httpClient.<InputStream>send(any(HttpRequest.class), any()))
+                .thenReturn(streamHttpResponse);
+
+        assertThatThrownBy(() -> aiClient.generateStream(
+                MODEL_CODE,
+                "System prompt",
+                "User prompt",
+                delta -> { }
+        ))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getCode())
                 .isEqualTo(502);
@@ -130,7 +149,7 @@ class DeepSeekAiClientTest {
                 .thenReturn(streamHttpResponse);
 
         String result = aiClient.generateStream(
-                "v4-flash",
+                MODEL_CODE,
                 "You are an interviewer.",
                 "Ask about JVM.",
                 deltas::add
@@ -159,7 +178,7 @@ class DeepSeekAiClientTest {
 
         assertThat(incompleteClient.isConfigured()).isFalse();
 
-        assertThatThrownBy(() -> incompleteClient.generate("v4-flash", "System prompt", "User prompt"))
+        assertThatThrownBy(() -> incompleteClient.generate(MODEL_CODE, "System prompt", "User prompt"))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getCode())
                 .isEqualTo(500);

@@ -34,7 +34,7 @@ class InterviewServiceImplTest {
     private static final EffectiveAiModel DEEPSEEK_MODEL = new EffectiveAiModel(
             1L,
             "deepseek",
-            "v4-flash",
+            "deepseek-v4-flash",
             "DeepSeek V4 Flash",
             true
     );

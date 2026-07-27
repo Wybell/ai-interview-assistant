@@ -85,7 +85,7 @@ class AiModelControllerTest {
                 new AiModelResponse(
                         1L,
                         "deepseek",
-                        "v4-flash",
+                        "deepseek-v4-flash",
                         "DeepSeek V4 Flash",
                         true,
                         true
@@ -107,7 +107,7 @@ class AiModelControllerTest {
                 .andExpect(jsonPath("$.data[0].modelId").doesNotExist())
                 .andExpect(jsonPath("$.data[0].id").value(1))
                 .andExpect(jsonPath("$.data[0].provider").value("deepseek"))
-                .andExpect(jsonPath("$.data[0].modelCode").value("v4-flash"))
+                .andExpect(jsonPath("$.data[0].modelCode").value("deepseek-v4-flash"))
                 .andExpect(jsonPath("$.data[0].defaultModel").value(true))
                 .andExpect(jsonPath("$.data[0].selected").value(true));
 
@@ -122,7 +122,7 @@ class AiModelControllerTest {
                 new AiModelPreferenceResponse(
                         1L,
                         "deepseek",
-                        "v4-flash",
+                        "deepseek-v4-flash",
                         "DeepSeek V4 Flash",
                         true
                 )
@@ -134,7 +134,7 @@ class AiModelControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.modelId").value(1))
                 .andExpect(jsonPath("$.data.provider").value("deepseek"))
-                .andExpect(jsonPath("$.data.modelCode").value("v4-flash"))
+                .andExpect(jsonPath("$.data.modelCode").value("deepseek-v4-flash"))
                 .andExpect(jsonPath("$.data.defaultSelection").value(true));
 
         verify(userAiPreferenceService).getEffectivePreference(7L);

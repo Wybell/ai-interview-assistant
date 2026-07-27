@@ -87,6 +87,48 @@ class AiServiceTest {
     }
 
     @Test
+    void shouldParseScoreResultWrappedInMarkdownCodeFence() {
+        when(aiClientRegistry.generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                anyString()
+        )).thenReturn("""
+                ```json
+                {"score":8,"correct_answer":"standard {answer}","suggestion":"add more details"}
+                ```
+                """);
+
+        AiScoreResult result = aiService.scoreAnswer(SELECTED_MODEL, "What is JVM?", "My answer");
+
+        assertThat(result).isEqualTo(new AiScoreResult(
+                8,
+                "standard {answer}",
+                "add more details"
+        ));
+    }
+
+    @Test
+    void shouldParseScoreResultWithLeadingAndTrailingProse() {
+        when(aiClientRegistry.generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                anyString()
+        )).thenReturn("Score result:\n"
+                + "{\"score\":8,\"correct_answer\":\"standard answer\",\"suggestion\":\"add more details\"}\n"
+                + "Use this feedback for practice.");
+
+        AiScoreResult result = aiService.scoreAnswer(SELECTED_MODEL, "What is JVM?", "My answer");
+
+        assertThat(result).isEqualTo(new AiScoreResult(
+                8,
+                "standard answer",
+                "add more details"
+        ));
+    }
+
+    @Test
     void shouldParseAndForwardStreamingScoreResultThroughSelectedRuntimeModel() {
         List<String> deltas = new ArrayList<>();
         when(aiClientRegistry.generateStream(
@@ -150,5 +192,19 @@ class AiServiceTest {
         assertThatThrownBy(() -> aiService.scoreAnswer(SELECTED_MODEL, "What is JVM?", "My answer"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("AI 评分结果格式错误");
+    }
+
+    @Test
+    void shouldRejectMalformedAiScoreResult() {
+        when(aiClientRegistry.generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                anyString()
+        )).thenReturn("Score result: {\"score\":8");
+
+        assertThatThrownBy(() -> aiService.scoreAnswer(SELECTED_MODEL, "What is JVM?", "My answer"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("AI 评分结果解析失败");
     }
 }

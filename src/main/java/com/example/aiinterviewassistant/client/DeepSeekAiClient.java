@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -21,6 +23,7 @@ import java.time.Duration;
 @Component
 public class DeepSeekAiClient implements AiClient {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeepSeekAiClient.class);
     private static final String PROVIDER = "deepseek";
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
@@ -57,7 +60,8 @@ public class DeepSeekAiClient implements AiClient {
                     HttpResponse.BodyHandlers.ofString()
             );
 
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            if (!isSuccessful(response.statusCode())) {
+                logUpstreamHttpFailure("generate", response.statusCode());
                 throw new BusinessException(502, "AI服务调用失败");
             }
 
@@ -71,8 +75,10 @@ public class DeepSeekAiClient implements AiClient {
             throw e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            logTechnicalFailure("generate", "interrupted");
             throw new BusinessException(502, "AI服务调用失败");
         } catch (IOException | IllegalArgumentException e) {
+            logTechnicalFailure("generate", technicalFailureCategory(e));
             throw new BusinessException(502, "AI服务调用失败");
         }
     }
@@ -90,7 +96,8 @@ public class DeepSeekAiClient implements AiClient {
                     HttpResponse.BodyHandlers.ofInputStream()
             );
 
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            if (!isSuccessful(response.statusCode())) {
+                logUpstreamHttpFailure("generate_stream", response.statusCode());
                 throw new BusinessException(502, "AI服务调用失败");
             }
 
@@ -110,6 +117,7 @@ public class DeepSeekAiClient implements AiClient {
             });
 
             if (generatedText.length() == 0) {
+                logTechnicalFailure("generate_stream", "empty_response");
                 throw new BusinessException(502, "AI服务返回内容为空");
             }
             return generatedText.toString();
@@ -124,8 +132,25 @@ public class DeepSeekAiClient implements AiClient {
             if (Thread.currentThread().isInterrupted()) {
                 throw new AiStreamCancelledException(exception);
             }
+            logTechnicalFailure("generate_stream", technicalFailureCategory(exception));
             throw new BusinessException(502, "AI服务调用失败");
         }
+    }
+
+    private boolean isSuccessful(int statusCode) {
+        return statusCode >= 200 && statusCode < 300;
+    }
+
+    private void logUpstreamHttpFailure(String operation, int statusCode) {
+        LOGGER.warn("deepseek_upstream_failure operation={} status={}", operation, statusCode);
+    }
+
+    private void logTechnicalFailure(String operation, String category) {
+        LOGGER.warn("deepseek_upstream_failure operation={} category={}", operation, category);
+    }
+
+    private String technicalFailureCategory(Exception exception) {
+        return exception instanceof IOException ? "io_failure" : "invalid_request_configuration";
     }
 
     private HttpRequest createRequest(

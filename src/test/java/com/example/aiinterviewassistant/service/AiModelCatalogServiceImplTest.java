@@ -48,7 +48,7 @@ class AiModelCatalogServiceImplTest {
         AiModel deepSeekModel = aiModel(
                 1L,
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "DeepSeek V4 Flash"
         );
         AiModel change2ProModel = aiModel(
@@ -70,13 +70,13 @@ class AiModelCatalogServiceImplTest {
                 new EffectiveAiModel(
                         1L,
                         "deepseek",
-                        "v4-flash",
+                        "deepseek-v4-flash",
                         "DeepSeek V4 Flash",
                         true
                 )
         );
         when(aiModelMapper.selectList(any())).thenReturn(List.of(deepSeekModel, change2ProModel));
-        when(aiClientRegistry.isModelAvailable("deepseek", "v4-flash")).thenReturn(true);
+        when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
         when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(true);
 
         List<AiModelResponse> actual = aiModelCatalogService.getAvailableModels(7L);
@@ -85,7 +85,7 @@ class AiModelCatalogServiceImplTest {
                 new AiModelResponse(
                         1L,
                         "deepseek",
-                        "v4-flash",
+                        "deepseek-v4-flash",
                         "DeepSeek V4 Flash",
                         true,
                         false
@@ -111,7 +111,7 @@ class AiModelCatalogServiceImplTest {
         AiModel deepSeekModel = aiModel(
                 1L,
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "DeepSeek V4 Flash"
         );
         AiModel change2ProModel = aiModel(
@@ -123,14 +123,14 @@ class AiModelCatalogServiceImplTest {
         EffectiveAiModel deepSeekEffectiveModel = new EffectiveAiModel(
                 1L,
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "DeepSeek V4 Flash",
                 true
         );
         when(userAiPreferenceService.resolveEffectiveModel(7L)).thenReturn(deepSeekEffectiveModel);
         when(userAiPreferenceService.resolveDefaultModel()).thenReturn(deepSeekEffectiveModel);
         when(aiModelMapper.selectList(any())).thenReturn(List.of(deepSeekModel, change2ProModel));
-        when(aiClientRegistry.isModelAvailable("deepseek", "v4-flash")).thenReturn(true);
+        when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
         when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(false);
 
         List<AiModelResponse> actual = aiModelCatalogService.getAvailableModels(7L);
@@ -138,7 +138,7 @@ class AiModelCatalogServiceImplTest {
         assertThat(actual).containsExactly(new AiModelResponse(
                 1L,
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "DeepSeek V4 Flash",
                 true,
                 true

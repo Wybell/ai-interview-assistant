@@ -66,14 +66,14 @@ class UserAiPreferenceServiceImplTest {
         when(userAiPreferenceMapper.selectById(7L)).thenReturn(null);
         when(aiModelPolicyMapper.selectById(1)).thenReturn(policy(1L));
         when(aiModelMapper.selectById(1L)).thenReturn(deepSeekModel(true));
-        when(aiClientRegistry.isModelAvailable("deepseek", "v4-flash")).thenReturn(true);
+        when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
 
         EffectiveAiModel actual = userAiPreferenceService.resolveEffectiveModel(7L);
 
         assertThat(actual).isEqualTo(new EffectiveAiModel(
                 1L,
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "DeepSeek V4 Flash",
                 true
         ));
@@ -85,7 +85,7 @@ class UserAiPreferenceServiceImplTest {
         when(aiModelMapper.selectById(2L)).thenReturn(change2ProModel(false));
         when(aiModelPolicyMapper.selectById(1)).thenReturn(policy(1L));
         when(aiModelMapper.selectById(1L)).thenReturn(deepSeekModel(true));
-        when(aiClientRegistry.isModelAvailable("deepseek", "v4-flash")).thenReturn(true);
+        when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
 
         EffectiveAiModel actual = userAiPreferenceService.resolveEffectiveModel(7L);
 
@@ -98,14 +98,14 @@ class UserAiPreferenceServiceImplTest {
         when(userAiPreferenceMapper.selectById(7L)).thenReturn(null);
         when(aiModelPolicyMapper.selectById(1)).thenReturn(policy(1L));
         when(aiModelMapper.selectById(1L)).thenReturn(deepSeekModel(true));
-        when(aiClientRegistry.isModelAvailable("deepseek", "v4-flash")).thenReturn(true);
+        when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
 
         AiModelPreferenceResponse actual = userAiPreferenceService.getEffectivePreference(7L);
 
         assertThat(actual).isEqualTo(new AiModelPreferenceResponse(
                 1L,
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "DeepSeek V4 Flash",
                 true
         ));
@@ -165,7 +165,7 @@ class UserAiPreferenceServiceImplTest {
         when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(false);
         when(aiModelPolicyMapper.selectById(1)).thenReturn(policy(1L));
         when(aiModelMapper.selectById(1L)).thenReturn(deepSeekModel(true));
-        when(aiClientRegistry.isModelAvailable("deepseek", "v4-flash")).thenReturn(true);
+        when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
 
         EffectiveAiModel actual = userAiPreferenceService.resolveEffectiveModel(7L);
 
@@ -177,7 +177,7 @@ class UserAiPreferenceServiceImplTest {
     void shouldRejectDefaultModelWhenProviderConfigurationIsUnavailable() {
         when(aiModelPolicyMapper.selectById(1)).thenReturn(policy(1L));
         when(aiModelMapper.selectById(1L)).thenReturn(deepSeekModel(true));
-        when(aiClientRegistry.isModelAvailable("deepseek", "v4-flash")).thenReturn(false);
+        when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(false);
 
         assertThatThrownBy(userAiPreferenceService::resolveDefaultModel)
                 .isInstanceOf(BusinessException.class)
@@ -232,7 +232,7 @@ class UserAiPreferenceServiceImplTest {
         return aiModel(
                 1L,
                 "deepseek",
-                "v4-flash",
+                "deepseek-v4-flash",
                 "DeepSeek V4 Flash",
                 enabled
         );
