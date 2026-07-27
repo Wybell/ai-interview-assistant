@@ -10,7 +10,7 @@ AI Interview Assistant is a single Git repository for an AI interview-training p
 - Question generation, normal scoring, SSE scoring, and answer-record persistence have been verified locally.
 - Swagger/OpenAPI now documents authentication, model selection, interview training, legacy compatibility routes, JWT Bearer security, response schemas, and SSE behavior.
 - Local Swagger UI is available at `http://localhost:8082/swagger-ui.html`.
-- The `frontend/` directory is reserved for the independent Vue frontend; the Vue project has not been scaffolded yet.
+- The independent Vue 3 frontend is implemented in `frontend/`; its browser visual checks passed with mocked API responses, while live backend integration remains to be run with the local backend online.
 
 ## Technology Stack
 
@@ -23,6 +23,7 @@ AI Interview Assistant is a single Git repository for an AI interview-training p
 - Redis
 - Spring Security and JWT
 - DeepSeek, Change2Pro, and DashScope AI clients
+- Vue 3, Vite, TypeScript, Pinia, Axios, Element Plus, ECharts
 
 ## Project Layout
 
@@ -37,7 +38,10 @@ backend/                         Spring Boot backend; open this folder in Intell
   src/main/resources/static/     Legacy static pages, not the production frontend
   src/test/                      Unit, MVC, security, client, service, and SSE tests
 
-frontend/                        Reserved for the Vue 3 application; open this folder in VS Code
+frontend/                        Vue 3 application; open this folder in VS Code
+  src/                           API modules, stores, components, views, utilities, and styles
+  AGENTS.md                      Frontend-specific collaboration and delivery rules
+  README.md                      Frontend local development guide
 docs/                            Cross-project architecture and integration notes
 AGENTS.md                        Collaboration rules and current project status
 README.md                        Repository entry point
@@ -50,6 +54,7 @@ README.md                        Repository entry point
 - Redis running locally or in a reachable development environment
 - A valid DeepSeek API key for the default model
 - Maven Wrapper is included; a separate Maven installation is optional
+- Node.js 22 and pnpm for the independent frontend
 
 ## Configuration
 
@@ -94,6 +99,18 @@ The local server listens on `http://localhost:8082` by default.
 
 Use `FLYWAY_ENABLED=true` only when the target database is intentionally prepared for the versioned migrations. Do not modify already-applied migration files or manually alter production schema in Navicat.
 
+## Frontend Startup
+
+With the backend running on port `8082`, start the Vue application in another terminal:
+
+```powershell
+Set-Location frontend
+pnpm install
+pnpm dev
+```
+
+Open `http://127.0.0.1:5173`. Vite proxies `/api` to `http://localhost:8082` by default. Set `VITE_BACKEND_TARGET` before starting Vite only when the backend uses another address.
+
 ## Tests
 
 Run the full test suite without applying Flyway migrations:
@@ -101,6 +118,16 @@ Run the full test suite without applying Flyway migrations:
 ```powershell
 Set-Location backend
 .\mvnw.cmd -Dspring.flyway.enabled=false test
+```
+
+Run frontend quality checks:
+
+```powershell
+Set-Location frontend
+pnpm format:check
+pnpm lint
+pnpm test:run
+pnpm build
 ```
 
 ## OpenAPI and Swagger
@@ -158,7 +185,7 @@ Flyway migrations are the only source of truth for production schema changes:
 - [Frontend-backend integration notes](docs/frontend-backend-integration.md)
 - [Upgrade plan](docs/project-upgrade-plan.md)
 
-The OpenAPI contract is the current source of truth for frontend API integration. The next project phase is the independent Vue frontend.
+The OpenAPI contract is the source of truth for frontend API integration. The independent Vue frontend is implemented; its next required verification is a complete live run against the locally started backend.
 
 ## Development Rules
 

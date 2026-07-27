@@ -1,0 +1,39 @@
+:root {
+  --el-color-primary: var(--primary);
+  --el-color-primary-light-3: #58a89f;
+  --el-color-primary-light-5: #8ac8c0;
+  --el-color-primary-light-7: #bde5df;
+  --el-color-primary-light-9: var(--primary-subtle);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--danger);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-radius-base: var(--radius-sm);
+  --el-border-radius-small: var(--radius-sm);
+  --el-fill-color-blank: var(--surface);
+  --el-bg-color: var(--surface);
+  --el-text-color-primary: var(--ink-strong);
+  --el-text-color-regular: var(--ink);
+  --el-text-color-secondary: var(--ink-muted);
+}
+
+.el-button {
+  font-weight: 600;
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  box-shadow: 0 0 0 1px var(--border) inset;
+}
+
+.el-input__wrapper:hover,
+.el-textarea__inner:hover,
+.el-select__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--border-strong) inset;
+}
+
+.el-drawer {
+  max-width: min(560px, 94vw);
+}

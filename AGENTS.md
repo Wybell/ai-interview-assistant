@@ -60,7 +60,7 @@
 repository-root/
   .git/          # 唯一 Git 仓库根目录
   backend/       # Spring Boot、Maven Wrapper、数据库迁移与后端测试
-  frontend/      # 独立 Vue 3 前端工程，尚未初始化
+  frontend/      # 独立 Vue 3 前端工程，在 VS Code 中打开
     AGENTS.md    # 前端专属产品、体验、接口与验证规则
   docs/          # 前后端共享架构与集成文档
   AGENTS.md
@@ -715,6 +715,15 @@ Completion criteria:
 - Added the root `README.md` as the repository entry point. It documents the verified backend scope, non-sensitive environment-variable contract, local startup and test commands, API areas, migration rules, and project navigation; later updates complete the Swagger/OpenAPI and JWT usage documentation.
 - Started Swagger/OpenAPI integration by adding `org.springdoc:springdoc-openapi-ui:1.7.0`, which is compatible with Spring Boot `2.7.18`. Maven compile completed successfully; no application instance, Flyway migration, database mutation, or external AI call occurred. The next Swagger step is metadata, JWT Bearer documentation, and API-path configuration.
 - Added `OpenApiConfig`, which registers the API title, version, description, and reusable `bearerAuth` JWT scheme. Maven compile passed with 62 main source files.
+
+### Independent Vue Frontend Update (2026-07-27)
+
+- `frontend/` is now a Vue 3 + Vite + TypeScript application managed with pnpm. It contains route guards, session-scoped JWT storage, Axios response/error handling, a Vite `/api` proxy, Pinia stores, Element Plus controls, Lucide icons, and modular ECharts loading.
+- Implemented routes are `/login`, `/register`, `/practice`, `/mistakes`, and `/progress`. The app consumes the documented authentication, model catalog/preference, question generation, scoring, mistake, and progress contracts.
+- The training flow supports model selection, forced question generation, a 5,000-character answer limit, true SSE parsing through `fetch` with an `Authorization: Bearer` header, error/cancellation states, and score feedback. It never places the JWT in a URL.
+- The mistake view has a real API-backed list/detail drawer and retry path; the progress view renders only the backend-provided per-tag count and average score. No fake dashboard metrics were added.
+- Frontend quality verification passed locally: Prettier check, ESLint with zero warnings, 5 Vitest tests, and the Vite production build. Playwright browser checks passed for successful and failed login, expired-token logout, model selection, question generation, SSE `done` parsing, score display, mistake drawer, progress chart, empty progress state, and desktop/mobile navigation behavior. Browser-plugin support was unavailable, so the checks used local Chrome through Playwright.
+- The local backend was not running during this browser QA. Mocking was restricted to the exact `/api` requests for visual and interaction verification; live login, provider requests, model switching, scoring persistence, mistake retrieval, and progress retrieval must be rechecked after starting `backend/` on port `8082`.
 - Added Springdoc paths and environment switches. Local development enables `/v3/api-docs` and `/swagger-ui.html` by default; production keeps both disabled unless `OPENAPI_ENABLED=true` and `SWAGGER_UI_ENABLED=true` are explicitly supplied.
 - `SecurityConfig` now permits only `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs`, and `/v3/api-docs/**` without JWT. All `/api/**` business routes remain protected by the existing `anyRequest().authenticated()` rule. Targeted `SecurityApiTest` verification passed: 10 tests, 0 failures, 0 errors, with Flyway disabled.
 - Added `OpenApiDocumentationIntegrationTest` as a Spring MVC slice with explicit Springdoc MVC/UI configuration and mocked Controller dependencies. It verifies anonymous `/v3/api-docs` access, API title/version, the reusable HTTP Bearer `bearerAuth` scheme, Swagger UI redirection, and that an anonymous `/api/mistakes` call remains `401`. Targeted verification passed: 3 tests, 0 failures, 0 errors, with Flyway disabled and no database, Redis, or AI invocation.
