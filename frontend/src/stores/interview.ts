@@ -27,12 +27,6 @@ export const useInterviewStore = defineStore('interview', {
     streamText: '',
     abortController: null as AbortController | null,
   }),
-  getters: {
-    canScore: (state) =>
-      Boolean(state.question.trim()) &&
-      Boolean(state.answer.trim()) &&
-      state.scoreStatus !== 'streaming',
-  },
   actions: {
     resetScore() {
       this.scoreStatus = 'idle';

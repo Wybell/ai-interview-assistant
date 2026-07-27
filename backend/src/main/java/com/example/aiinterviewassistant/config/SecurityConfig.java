@@ -54,7 +54,6 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/v3/api-docs/**")
                         ).permitAll()
                         .requestMatchers(new AntPathRequestMatcher("/api/auth/**")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/api/question/score/stream")).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception

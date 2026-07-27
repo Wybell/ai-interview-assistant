@@ -36,18 +36,14 @@ export async function streamScore(
     throw new ApiError('登录状态已失效，请重新登录', { status: 401, code: 401 });
   }
 
-  const query = new URLSearchParams({
-    question: payload.question,
-    answer: payload.answer,
-    tag: payload.tag,
-  });
-
-  const response = await fetch(`${API_BASE_URL}/question/score/stream?${query.toString()}`, {
-    method: 'get',
+  const response = await fetch(`${API_BASE_URL}/question/score/stream`, {
+    method: 'post',
     headers: {
       Accept: 'text/event-stream',
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${session.token}`,
     },
+    body: JSON.stringify(payload),
     signal,
   });
 

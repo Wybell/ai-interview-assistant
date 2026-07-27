@@ -12,9 +12,6 @@ export const useAuthStore = defineStore('auth', {
     username: initialSession?.username ?? '',
     isSubmitting: false,
   }),
-  getters: {
-    isAuthenticated: (state) => Boolean(state.token),
-  },
   actions: {
     applySession(session: AuthSession) {
       this.token = session.token;

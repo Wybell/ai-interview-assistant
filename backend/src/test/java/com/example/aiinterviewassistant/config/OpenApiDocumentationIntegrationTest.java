@@ -172,8 +172,8 @@ class OpenApiDocumentationIntegrationTest {
         assertLegacyOperation(paths, "/api/question/ask", "get");
         assertLegacyOperation(paths, "/api/question/score", "get");
 
-        JsonNode streamOperation = paths.path("/api/question/score/stream").path("get");
-        assertTrue(streamOperation.path("deprecated").asBoolean());
+        JsonNode streamOperation = paths.path("/api/question/score/stream").path("post");
+        assertFalse(streamOperation.path("deprecated").asBoolean());
         assertBearerSecurity(streamOperation);
         assertTrue(streamOperation.path("responses").path("200").path("content")
                 .has(MediaType.TEXT_EVENT_STREAM_VALUE));
@@ -181,10 +181,7 @@ class OpenApiDocumentationIntegrationTest {
         assertTrue(streamOperation.path("description").asText().contains("event: done"));
         assertTrue(streamOperation.path("description").asText().contains("event: error"));
 
-        JsonNode legacyTokenParameter = findParameter(streamOperation, "token");
-        assertNotNull(legacyTokenParameter);
-        assertEquals("query", legacyTokenParameter.path("in").asText());
-        assertTrue(legacyTokenParameter.path("deprecated").asBoolean());
+        assertFalse(findParameter(streamOperation, "token") != null);
 
         JsonNode schemas = document.path("components").path("schemas");
         assertSchemaWithProperties(schemas, "QuestionRequest", "tag", "refresh");

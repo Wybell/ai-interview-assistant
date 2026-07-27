@@ -225,7 +225,7 @@ public class AiController {
         return ApiResponse.success(scoreResult);
     }
 
-    @GetMapping(value = "/api/question/score/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    // Legacy query-parameter SSE method retained only as source history; no route is exposed.
     @Operation(
             summary = "流式评分（旧版 SSE 兼容）",
             description = "已废弃的旧静态页面兼容流。正式客户端应通过 Authorization: Bearer <token> 认证。"
@@ -265,6 +265,25 @@ public class AiController {
             @RequestParam(value = "tag", defaultValue = "unknown") String tag) {
         Long userId = userContext.getCurrentUserId();
         return interviewScoreSseAdapter.streamScore(userId, question, answer, tag);
+    }
+
+    @PostMapping(value = "/api/question/score/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(
+            summary = "娴佸紡璇勫垎",
+            description = "JSON 请求体配合 Bearer Token 执行流式评分，完成时发送 event: done，失败时发送 event: error。"
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "SSE 流式评分结果",
+                    content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
+                            schema = @Schema(type = "string"))
+            )
+    })
+    public SseEmitter streamScoreJson(@Valid @RequestBody ScoreRequest request) {
+        Long userId = userContext.getCurrentUserId();
+        return interviewScoreSseAdapter.streamScore(
+                userId, request.getQuestion(), request.getAnswer(), request.getTag());
     }
 
     @GetMapping("/api/mistakes")

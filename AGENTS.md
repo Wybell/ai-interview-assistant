@@ -963,3 +963,11 @@ Cloud release
 - Full Maven regression passed after the MySQL Flyway module was added: 37 tests, 0 failures, and 0 errors, with `FLYWAY_ENABLED=false`.
 - No `flyway_schema_history` table has been created and no cloud database SQL has been executed.
 - The next controlled step is to restart the local application with `FLYWAY_ENABLED=true`, then verify that V1 creates `user`, `answer_record`, and Flyway history records.
+
+## Current Status (2026-07-28)
+
+- Streaming scoring now uses `POST /api/question/score/stream` with a JSON body and Bearer authentication.
+- Legacy static HTML pages and URL-token SSE compatibility have been removed.
+- Frontend cleanup and POST SSE request coverage are complete.
+- Backend OpenAPI contract verification passed. Frontend lint, 6 tests, and production build passed.
+- The next verification is the full backend regression and an authenticated local POST SSE smoke test.
