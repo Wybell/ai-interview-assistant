@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 - AI面试助手</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: linear-gradient(145deg, #f0f4fa 0%, #d9e2ef 100%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 32px;
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #1e2b3c, #2c4c6e);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+    .sub {
+      color: #4a627a;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+    }
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      border-radius: 28px;
+      border: 1px solid #cddfe7;
+      font-size: 1rem;
+    }
+    button {
+      width: 100%;
+      background: #1f6392;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 40px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover { background: #0f4b6e; }
+    .error { color: #c73e1d; margin-top: 12px; }
+    .link { margin-top: 20px; font-size: 0.9rem; }
+    .link a { color: #1f6392; text-decoration: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>🤖 AI面试助手</h1>
+  <div class="sub">登录你的账号</div>
+  <input type="text" id="username" placeholder="用户名" autocomplete="off">
+  <input type="password" id="password" placeholder="密码">
+  <button id="loginBtn">登 录</button>
+  <div id="errorMsg" class="error"></div>
+  <div class="link">还没有账号？ <a href="register.html">立即注册</a></div>
+</div>
+<script>
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username || !password) {
+      document.getElementById('errorMsg').innerText = '用户名和密码不能为空';
+      return;
+    }
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+      });
+      const body = await res.json();
+      if (!res.ok || body.code !== 200 || !body.data?.token) {
+        document.getElementById('errorMsg').innerText = body.message || '登录失败';
+        return;
+      }
+
+      localStorage.setItem('token', body.data.token);
+      localStorage.setItem('username', body.data.username);
+      window.location.href = 'index.html';
+    } catch (err) {
+      document.getElementById('errorMsg').innerText = '网络错误，请稍后重试';
+    }
+  });
+</script>
+</body>
+</html>
