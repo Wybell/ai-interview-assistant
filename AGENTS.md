@@ -61,6 +61,7 @@ repository-root/
   .git/          # 唯一 Git 仓库根目录
   backend/       # Spring Boot、Maven Wrapper、数据库迁移与后端测试
   frontend/      # 独立 Vue 3 前端工程，尚未初始化
+    AGENTS.md    # 前端专属产品、体验、接口与验证规则
   docs/          # 前后端共享架构与集成文档
   AGENTS.md
   README.md
@@ -69,6 +70,7 @@ repository-root/
 - IDEA 只打开 `backend/`；VS Code 只打开 `frontend/`。
 - 所有 Git 命令在仓库根目录执行；不要在 `backend/` 或 `frontend/` 再执行 `git init`。
 - 所有 Maven 命令在 `backend/` 执行，例如 `Set-Location backend; .\mvnw.cmd test`。
+- 修改 `frontend/` 下的任何内容前，必须先阅读 `frontend/AGENTS.md`；它继承本文件的企业级原则，并补充前端体验、OpenAPI、JWT、SSE 和验证约束。
 - 历史记录中未加 `backend/` 前缀的旧路径，表示目录重组前的路径；后续新增或修改的路径以此处结构为准。
 
 ## 近期变更记录（2026-07-23）
@@ -727,10 +729,11 @@ Completion criteria:
 - Reorganized the repository into a single Git root named `AI面试助手`, with `backend/` for the Spring Boot application and `frontend/` reserved for the independent Vue 3 application. The existing Git history and uncommitted work were retained; no commit was created during the structural move. Root documentation and ignore rules now reflect the new command and build-output paths.
 - The requested outer-folder rename is complete. Do not move `backend/`, `frontend/`, or `.git` again when opening the project in IDEA or VS Code.
 - Structural verification ran from `backend/` after the repository move. The current Surefire reports confirm 94 tests with 0 failures and 0 errors; the outer Maven command exceeded the execution-tool wait window only after the reports were written. No Flyway migration, database operation, Redis call, or AI call was performed for this verification.
+- Added `frontend/AGENTS.md` as the frontend-specific collaboration contract. It extracts applicable root rules and adds mandatory polished-minimal UX, real API-data boundaries, OpenAPI/JWT/SSE integration rules, responsive accessibility, and frontend verification requirements. The frontend remains unscaffolded.
 
 ### Current highest priority
 
-The Swagger/OpenAPI phase is complete. Preserve the DeepSeek policy default and do not edit `ai_model` manually in Navicat. The next implementation phase is the independent Vue frontend in `frontend/`, which must treat the OpenAPI contract as the source of truth and use the protected JSON APIs rather than deprecated legacy routes. The two-user no-restart preference smoke test and stream-disconnect cancellation smoke test remain required before cloud deployment.
+The Swagger/OpenAPI phase is complete. Preserve the DeepSeek policy default and do not edit `ai_model` manually in Navicat. The next implementation phase is the independent Vue frontend in `frontend/`; read `frontend/AGENTS.md` first, treat OpenAPI as the source of truth, and use protected JSON APIs rather than deprecated legacy routes. The two-user no-restart preference smoke test and stream-disconnect cancellation smoke test remain required before cloud deployment.
 
 - Vue 3
 - Vite
