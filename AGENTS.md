@@ -691,6 +691,7 @@ Completion criteria:
 - Change2Pro question generation, scoring persistence, and true upstream SSE have been verified locally.
 - DeepSeek configuration and model correction are complete locally: V3 is applied, real question generation works, normal scoring works, and scoring persistence uses model ID `1`. The remaining issue is only the final completion stage of real SSE scoring.
 - The DeepSeek SSE score parser now tolerates a balanced JSON object wrapped by Markdown or explanatory text while retaining schema and score-range validation. A real authenticated DeepSeek stream-score retry completed with `event:done`; the returned score was `7`, with no `event:error` or `sse_score_failure` reported. A read-only Navicat query confirmed the newest stream-created `answer_record` has `score_ai_model_id=1`.
+- Added the root `README.md` as the repository entry point. It documents the verified backend scope, non-sensitive environment-variable contract, local startup and test commands, API areas, migration rules, and project navigation; Swagger/OpenAPI remains the next backend documentation step.
 
 ### Current highest priority
 
