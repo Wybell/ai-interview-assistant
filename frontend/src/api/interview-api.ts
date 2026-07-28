@@ -18,14 +18,6 @@ export function generateQuestion(payload: QuestionRequest): Promise<string> {
   });
 }
 
-export function scoreAnswer(payload: ScoreRequest): Promise<AiScoreResult> {
-  return request<AiScoreResult>({
-    url: '/question/score',
-    method: 'post',
-    data: payload,
-  });
-}
-
 export async function streamScore(
   payload: ScoreRequest,
   callbacks: ScoreStreamCallbacks,
