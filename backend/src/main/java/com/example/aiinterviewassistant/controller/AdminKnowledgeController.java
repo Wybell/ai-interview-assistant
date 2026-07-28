@@ -58,7 +58,7 @@ public class AdminKnowledgeController {
         document.setCategory("上传资料");
         document.setTitle(file.getOriginalFilename());
         document.setSourceFileName(file.getOriginalFilename());
-        document.setSummary(content);
+        document.setSummary(content.length() > 1000 ? content.substring(0, 1000) : content);
         document.setDocumentContent(content);
         document.setKeyPoints("[]");
         document.setPublished(1);
