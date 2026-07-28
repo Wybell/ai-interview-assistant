@@ -13,7 +13,6 @@ import com.example.aiinterviewassistant.utils.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -225,47 +224,6 @@ public class AiController {
         return ApiResponse.success(scoreResult);
     }
 
-    // Legacy query-parameter SSE method retained only as source history; no route is exposed.
-    @Operation(
-            summary = "流式评分（旧版 SSE 兼容）",
-            description = "已废弃的旧静态页面兼容流。正式客户端应通过 Authorization: Bearer <token> 认证。"
-                    + "该接口额外接受已废弃的 token 查询参数，仅为旧页面 EventSource 兼容；不要在新的前端或生产链接中传递 JWT。"
-                    + "响应会先发送多个普通 data: 文本片段；成功时以 event: done 发送 AiScoreResult JSON；失败时以 event: error 发送文本消息。"
-                    + "无有效凭证时，服务端会在 SSE 流内发送登录提示后结束，而不是返回普通 HTTP 401。",
-            deprecated = true
-    )
-    @Parameters({
-            @Parameter(
-                    name = "token",
-                    in = ParameterIn.QUERY,
-                    required = false,
-                    deprecated = true,
-                    description = "仅供旧静态页面兼容的 JWT 查询参数。新客户端必须使用 Bearer 请求头。"
-            )
-    })
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200",
-                    description = "SSE 流：普通 data 文本增量，随后 event: done 的 AiScoreResult JSON，或 event: error 的失败文本。",
-                    content = @Content(
-                            mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
-                            schema = @Schema(
-                                    type = "string",
-                                    example = "data: 正在评分\n\nevent: done\ndata: {\"score\":8,\"correct_answer\":\"示例参考答案\",\"suggestion\":\"示例改进建议\"}"
-                            )
-                    )
-            )
-    })
-    public SseEmitter streamScore(
-            @Parameter(description = "待评分的面试题", required = true, example = "请说明 Java 8 中 HashMap 的 put 流程。")
-            @RequestParam("question") String question,
-            @Parameter(description = "用户回答", required = true, example = "先计算 hash 并定位桶；发生冲突时比较 key，必要时遍历链表或红黑树；超过阈值则扩容。")
-            @RequestParam("answer") String answer,
-            @Parameter(description = "面试知识点", example = "HashMap")
-            @RequestParam(value = "tag", defaultValue = "unknown") String tag) {
-        Long userId = userContext.getCurrentUserId();
-        return interviewScoreSseAdapter.streamScore(userId, question, answer, tag);
-    }
 
     @PostMapping(value = "/api/question/score/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(
