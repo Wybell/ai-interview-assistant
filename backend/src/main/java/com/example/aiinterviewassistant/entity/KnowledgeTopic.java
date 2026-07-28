@@ -14,8 +14,10 @@ public class KnowledgeTopic {
     private String language;
     private String category;
     private String title;
+    private String sourceFileName;
     private String summary;
     private String keyPoints;
+    private String documentContent;
     private Integer published;
     private Integer sortOrder;
 }

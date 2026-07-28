@@ -54,8 +54,9 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         }
         List<KnowledgeQuestion> questions = questionMapper.selectList(new LambdaQueryWrapper<KnowledgeQuestion>()
                 .eq(KnowledgeQuestion::getTopicId, topic.getId()).orderByAsc(KnowledgeQuestion::getSortOrder));
+        String content = topic.getDocumentContent() == null ? topic.getSummary() : topic.getDocumentContent();
         return new KnowledgeTopicResponse(topic.getId(), topic.getDirection(), topic.getLanguage(), topic.getCategory(),
-                topic.getTitle(), topic.getSummary(), keyPoints,
+                topic.getTitle(), content, keyPoints,
                 questions.stream().map(item -> new KnowledgeTopicResponse.KnowledgeQuestion(item.getQuestion(), item.getAnswer())).toList());
     }
 }
