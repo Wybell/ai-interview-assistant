@@ -8,9 +8,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class UserContext {
 
-    public UserContext(JwtUtil jwtUtil) {
-    }
-
     public Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder
                 .getContext()
