@@ -60,7 +60,7 @@ onMounted(loadTopics);
       <aside class="topic-list" aria-label="知识专题列表">
         <div class="topic-list__heading"><span>{{ language }}专题</span><small>{{ topics.length }} 个专题</small></div>
         <button v-for="topic in topics" :key="topic.id" type="button" class="topic-item" :class="{ 'topic-item--active': selectedTopic?.id === topic.id }" @click="selectTopic(topic)">
-          <span><strong>{{ topic.title }}</strong><small>{{ topic.category }}</small></span><ChevronRight :size="17" />
+          <span><strong>{{ topic.title }}</strong><small>{{ topic.category }} · {{ topic.questions.length }} 个问题</small></span><ChevronRight :size="17" />
         </button>
         <div v-if="!topics.length" class="topic-list__empty">暂无该方向的专题内容</div>
       </aside>
