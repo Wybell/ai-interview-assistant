@@ -10,12 +10,14 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: initialSession?.token ?? '',
     username: initialSession?.username ?? '',
+    role: initialSession?.role ?? 'USER',
     isSubmitting: false,
   }),
   actions: {
     applySession(session: AuthSession) {
       this.token = session.token;
       this.username = session.username;
+      this.role = session.role ?? 'USER';
       writeSession(session);
     },
     async login(credentials: AuthCredentials) {
@@ -39,6 +41,7 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       this.token = '';
       this.username = '';
+      this.role = 'USER';
       clearSession();
     },
   },

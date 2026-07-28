@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
   Sparkles,
 } from '@lucide/vue';
+import { useAuthStore } from '@/stores/auth';
 
 const props = defineProps<{
   collapsed: boolean;
@@ -16,6 +17,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggle: [];
 }>();
+const authStore = useAuthStore();
 
 const navigation = [
   { name: 'practice', label: '面试训练', icon: BookOpen },
@@ -23,6 +25,8 @@ const navigation = [
   { name: 'progress', label: '学习进度', icon: ChartBar },
   { name: 'knowledge', label: '知识库', icon: Library },
 ] as const;
+
+const adminNavigation = { name: 'admin-knowledge', label: '知识库管理', icon: Library } as const;
 
 function handleNavigation(): void {
   if (!props.collapsed && window.matchMedia('(max-width: 840px)').matches) {
@@ -62,6 +66,12 @@ function handleNavigation(): void {
           <span v-if="!collapsed">{{ item.label }}</span>
         </RouterLink>
       </el-tooltip>
+    </nav>
+    <nav v-if="authStore.role === 'ADMIN'" class="sidebar__nav" aria-label="管理导航">
+      <RouterLink :to="{ name: adminNavigation.name }" class="sidebar__link" @click="handleNavigation">
+        <component :is="adminNavigation.icon" :size="19" stroke-width="1.8" />
+        <span v-if="!collapsed">{{ adminNavigation.label }}</span>
+      </RouterLink>
     </nav>
 
     <div v-if="!collapsed" class="sidebar__footer">专注每一次真实练习</div>

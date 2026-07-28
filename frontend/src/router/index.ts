@@ -26,6 +26,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'mistakes', name: 'mistakes', component: () => import('@/views/MistakesView.vue') },
       { path: 'progress', name: 'progress', component: () => import('@/views/ProgressView.vue') },
       { path: 'knowledge', name: 'knowledge', component: () => import('@/views/KnowledgeView.vue') },
+      { path: 'admin/knowledge', name: 'admin-knowledge', component: () => import('@/views/AdminKnowledgeView.vue') },
     ],
   },
   {
@@ -47,6 +48,9 @@ router.beforeEach((to) => {
   }
   if (to.meta.publicOnly && authenticated) {
     return { name: 'practice' };
+  }
+  if (to.name === 'admin-knowledge' && readSession()?.role !== 'ADMIN') {
+    return { name: 'knowledge' };
   }
   return true;
 });

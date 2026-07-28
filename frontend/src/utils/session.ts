@@ -19,7 +19,7 @@ export function readSession(): AuthSession | null {
   try {
     const session = JSON.parse(raw) as Partial<AuthSession>;
     if (typeof session.token === 'string' && typeof session.username === 'string') {
-      return { token: session.token, username: session.username };
+      return { token: session.token, username: session.username, role: session.role === 'ADMIN' ? 'ADMIN' : 'USER' };
     }
   } catch {
     window.sessionStorage.removeItem(SESSION_KEY);

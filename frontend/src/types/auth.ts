@@ -6,4 +6,5 @@ export interface AuthCredentials {
 export interface AuthSession {
   token: string;
   username: string;
+  role?: 'USER' | 'ADMIN';
 }
