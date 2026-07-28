@@ -38,13 +38,15 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     @Override
-    public String askQuestion(Long userId, String tag, boolean refresh) {
+    public String askQuestion(Long userId, String direction, String language, String tag, boolean refresh) {
         if (userId == null) {
             throw new BusinessException(401, "请先登录");
         }
 
+        validateScope(direction, language);
         EffectiveAiModel aiModel = userAiPreferenceService.resolveEffectiveModel(userId);
-        String cacheKey = "question:" + userId + ":model:" + aiModel.id() + ":" + tag;
+        String cacheKey = "question:" + userId + ":model:" + aiModel.id()
+                + ":" + direction + ":" + language + ":" + tag;
 
         if (!refresh) {
             String cached = redisTemplate.opsForValue().get(cacheKey);
@@ -53,7 +55,7 @@ public class InterviewServiceImpl implements InterviewService {
             }
         }
 
-        String questionText = aiService.generateQuestion(aiModel, tag);
+        String questionText = aiService.generateQuestion(aiModel, direction, language, tag);
 
         redisTemplate.opsForValue().set(
                 cacheKey,
@@ -62,6 +64,23 @@ public class InterviewServiceImpl implements InterviewService {
         );
 
         return questionText;
+    }
+
+    @Override
+    public String askQuestion(Long userId, String tag, boolean refresh) {
+        return askQuestion(userId, "backend", "Java", tag, refresh);
+    }
+
+    private void validateScope(String direction, String language) {
+        if ("frontend".equals(direction)
+                && java.util.Set.of("JavaScript", "TypeScript", "Vue", "React").contains(language)) {
+            return;
+        }
+        if ("backend".equals(direction)
+                && java.util.Set.of("Java", "Python", "Go", "C#", "Node.js", "TypeScript").contains(language)) {
+            return;
+        }
+        throw new BusinessException(400, "面试方向和语言组合不受支持");
     }
 
     @Override

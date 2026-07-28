@@ -40,6 +40,18 @@ public class AiService {
         );
     }
 
+    public String generateQuestion(
+            EffectiveAiModel aiModel,
+            String direction,
+            String language,
+            String tag) {
+        return generate(
+                aiModel,
+                QUESTION_SYSTEM_PROMPT,
+                "面试方向：" + direction + "\n语言或技术栈：" + language + "\n知识点：" + tag
+        );
+    }
+
     public AiScoreResult scoreAnswer(EffectiveAiModel aiModel, String question, String answer) {
         String resultText = generate(
                 aiModel,

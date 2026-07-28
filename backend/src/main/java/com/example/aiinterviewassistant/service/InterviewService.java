@@ -5,7 +5,11 @@ import com.example.aiinterviewassistant.dto.AiScoreResult;
 
 public interface InterviewService {
 
-    String askQuestion(Long userId, String tag, boolean refresh);
+    String askQuestion(Long userId, String direction, String language, String tag, boolean refresh);
+
+    default String askQuestion(Long userId, String tag, boolean refresh) {
+        return askQuestion(userId, "backend", "Java", tag, refresh);
+    }
 
     AiScoreResult scoreAnswer(
             Long userId,

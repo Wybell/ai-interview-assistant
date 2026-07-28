@@ -85,7 +85,7 @@ public class AiController {
             @Parameter(description = "true 时忽略当前用户和模型的题目缓存并重新生成", example = "false")
             @RequestParam(value = "refresh", defaultValue = "false") boolean refresh) {
         Long userId = userContext.getCurrentUserId();
-        String question = interviewService.askQuestion(userId, tag, refresh);
+        String question = interviewService.askQuestion(userId, "backend", "Java", tag, refresh);
 
         return ApiResponse.success(question);
     }
@@ -126,6 +126,8 @@ public class AiController {
         Long userId = userContext.getCurrentUserId();
         String question = interviewService.askQuestion(
                 userId,
+                request.getDirection(),
+                request.getLanguage(),
                 request.getTag(),
                 request.isRefresh()
         );
