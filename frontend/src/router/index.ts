@@ -25,6 +25,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'practice', name: 'practice', component: () => import('@/views/PracticeView.vue') },
       { path: 'mistakes', name: 'mistakes', component: () => import('@/views/MistakesView.vue') },
       { path: 'progress', name: 'progress', component: () => import('@/views/ProgressView.vue') },
+      { path: 'knowledge', name: 'knowledge', component: () => import('@/views/KnowledgeView.vue') },
     ],
   },
   {

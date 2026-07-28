@@ -3,6 +3,7 @@ import {
   BookOpen,
   ChartBar,
   ClipboardList,
+  Library,
   PanelLeftClose,
   PanelLeftOpen,
   Sparkles,
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'practice', label: '面试训练', icon: BookOpen },
   { name: 'mistakes', label: '错题本', icon: ClipboardList },
   { name: 'progress', label: '学习进度', icon: ChartBar },
+  { name: 'knowledge', label: '知识库', icon: Library },
 ] as const;
 
 function handleNavigation(): void {
