@@ -47,7 +47,7 @@ public class AiService {
             String tag) {
         return generate(
                 aiModel,
-                QUESTION_SYSTEM_PROMPT,
+                "你是一位严格的" + language + " " + direction + "技术面试官，只输出一道面试题。",
                 "面试方向：" + direction + "\n语言或技术栈：" + language + "\n知识点：" + tag
         );
     }
