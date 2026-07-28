@@ -3,6 +3,7 @@ package com.example.aiinterviewassistant.config;
 import com.example.aiinterviewassistant.security.JwtAuthenticationFilter;
 import com.example.aiinterviewassistant.security.RestSecurityExceptionHandler;
 import com.example.aiinterviewassistant.utils.JwtUtil;
+import com.example.aiinterviewassistant.mapper.UserMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,13 +18,16 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+    private final UserMapper userMapper;
     private final RestSecurityExceptionHandler restSecurityExceptionHandler;
 
     public SecurityConfig(
             JwtUtil jwtUtil,
+            UserMapper userMapper,
             RestSecurityExceptionHandler restSecurityExceptionHandler
     ) {
         this.jwtUtil = jwtUtil;
+        this.userMapper = userMapper;
         this.restSecurityExceptionHandler = restSecurityExceptionHandler;
     }
 
@@ -53,7 +57,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(restSecurityExceptionHandler)
                 )
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtUtil),
+                        new JwtAuthenticationFilter(jwtUtil, userMapper),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .httpBasic().disable()

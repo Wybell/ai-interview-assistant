@@ -14,4 +14,5 @@ public class AuthTokenResponse {
 
     @Schema(description = "认证成功的用户名。", example = "candidate01")
     private String username;
+    private String role;
 }
