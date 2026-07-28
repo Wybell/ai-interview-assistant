@@ -10,18 +10,34 @@ import { useInterviewStore } from '@/stores/interview';
 
 const route = useRoute();
 const interviewStore = useInterviewStore();
-const knowledgeOptions = {
-  frontend: ['JavaScript 基础', 'TypeScript 类型', 'Vue 组件', 'React Hooks', '浏览器原理', 'CSS 布局'],
-  backend: ['集合框架', '并发编程', 'JVM', 'Spring', 'MySQL', 'Redis'],
-} as const;
+const knowledgeOptions: Record<'frontend' | 'backend', Record<string, readonly string[]>> = {
+  frontend: {
+    JavaScript: ['JavaScript 基础', '异步编程', 'DOM 与事件', '浏览器原理'],
+    TypeScript: ['类型系统', '泛型', '类型体操', '工程配置'],
+    Vue: ['组件通信', 'Composition API', '响应式原理', 'Vue Router'],
+    React: ['组件设计', 'Hooks', '状态管理', 'React 性能优化'],
+  },
+  backend: {
+    Java: ['集合框架', '并发编程', 'JVM', 'Spring', 'MySQL', 'Redis'],
+    Python: ['Python 基础', '异步编程', 'FastAPI', 'Django'],
+    Go: ['Goroutine', 'Channel', 'Gin', '服务并发'],
+    'C#': ['C# 基础', '.NET', 'ASP.NET Core', 'Entity Framework'],
+    'Node.js': ['事件循环', 'Express', 'NestJS', 'Node.js 性能'],
+    TypeScript: ['Node.js 类型开发', 'NestJS', '异步编程', '服务架构'],
+  },
+};
 const languageOptions = {
   frontend: ['JavaScript', 'TypeScript', 'Vue', 'React'],
   backend: ['Java', 'Python', 'Go', 'C#', 'Node.js', 'TypeScript'],
 } as const;
-const availableTags = computed(() => knowledgeOptions[interviewStore.direction]);
+const availableTags = computed(() => knowledgeOptions[interviewStore.direction][interviewStore.language] ?? []);
 
 function handleDirectionChange(): void {
   interviewStore.language = languageOptions[interviewStore.direction][0];
+  handleLanguageChange();
+}
+
+function handleLanguageChange(): void {
   interviewStore.tag = '';
   interviewStore.question = '';
   interviewStore.resetScore();
@@ -63,6 +79,7 @@ watch(() => route.query.tag, applyTagFromRoute);
           v-model="interviewStore.language"
           :disabled="interviewStore.questionLoading || interviewStore.scoreStatus === 'streaming'"
           aria-label="选择语言或技术栈"
+          @change="handleLanguageChange"
         >
           <el-option
             v-for="language in languageOptions[interviewStore.direction]"
