@@ -1,20 +1,16 @@
 import { request } from '@/api/client';
 
-export interface AdminKnowledgeQuestion { question: string; answer: string; difficulty?: string }
-export interface AdminKnowledgeTopic {
-  id?: number; direction: string; language: string; category: string; title: string; summary: string;
-  keyPoints: string[]; questions: AdminKnowledgeQuestion[]; published?: boolean;
+export interface KnowledgeDocument { id: number; title: string; sourceFileName?: string; direction: string; language: string; summary: string; }
+
+export function getKnowledgeDocuments(direction: string, language: string): Promise<KnowledgeDocument[]> {
+  return request<KnowledgeDocument[]>({ url: '/admin/knowledge/documents', method: 'get', params: { direction, language } });
 }
 
-export function getAdminKnowledgeTopics(): Promise<AdminKnowledgeTopic[]> {
-  return request<AdminKnowledgeTopic[]>({ url: '/admin/knowledge/topics', method: 'get' });
+export function uploadKnowledgeDocument(direction: string, language: string, file: File): Promise<KnowledgeDocument> {
+  const data = new FormData(); data.append('direction', direction); data.append('language', language); data.append('file', file);
+  return request<KnowledgeDocument>({ url: '/admin/knowledge/documents', method: 'post', data, headers: { 'Content-Type': 'multipart/form-data' } });
 }
-export function createAdminKnowledgeTopic(data: AdminKnowledgeTopic): Promise<AdminKnowledgeTopic> {
-  return request<AdminKnowledgeTopic>({ url: '/admin/knowledge/topics', method: 'post', data });
-}
-export function updateAdminKnowledgeTopic(id: number, data: AdminKnowledgeTopic): Promise<AdminKnowledgeTopic> {
-  return request<AdminKnowledgeTopic>({ url: `/admin/knowledge/topics/${id}`, method: 'put', data });
-}
-export function deleteAdminKnowledgeTopic(id: number): Promise<void> {
-  return request<void>({ url: `/admin/knowledge/topics/${id}`, method: 'delete' });
+
+export function deleteKnowledgeDocument(id: number): Promise<void> {
+  return request<void>({ url: `/admin/knowledge/documents/${id}`, method: 'delete' });
 }
