@@ -10,6 +10,8 @@ import com.example.aiinterviewassistant.mapper.AiModelPolicyMapper;
 import com.example.aiinterviewassistant.mapper.AnswerRecordMapper;
 import com.example.aiinterviewassistant.mapper.UserAiPreferenceMapper;
 import com.example.aiinterviewassistant.mapper.UserMapper;
+import com.example.aiinterviewassistant.mapper.KnowledgeTopicMapper;
+import com.example.aiinterviewassistant.mapper.KnowledgeQuestionMapper;
 import com.example.aiinterviewassistant.sse.InterviewScoreSseAdapter;
 import com.example.aiinterviewassistant.service.InterviewService;
 import com.example.aiinterviewassistant.service.StudyService;
@@ -68,6 +70,12 @@ class SecurityApiTest {
 
     @MockBean
     private UserAiPreferenceMapper userAiPreferenceMapper;
+
+    @MockBean
+    private KnowledgeTopicMapper knowledgeTopicMapper;
+
+    @MockBean
+    private KnowledgeQuestionMapper knowledgeQuestionMapper;
 
     @Test
     void shouldReturnUnauthorizedApiResponseWhenTokenIsMissing() throws Exception {
@@ -138,13 +146,13 @@ class SecurityApiTest {
         when(jwtUtil.getUserIdFromToken("valid-token")).thenReturn(1L);
         when(jwtUtil.getUsernameFromToken("valid-token")).thenReturn("alice");
         when(userContext.getCurrentUserId()).thenReturn(1L);
-        when(interviewService.askQuestion(1L, "JVM", false))
+        when(interviewService.askQuestion(1L, "backend", "Java", "JVM", false))
                 .thenReturn("Explain JVM memory areas.");
 
         mockMvc.perform(post("/api/question/ask")
                         .header("Authorization", "Bearer valid-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"tag\":\"JVM\",\"refresh\":false}"))
+                        .content("{\"direction\":\"backend\",\"language\":\"Java\",\"tag\":\"JVM\",\"refresh\":false}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").value("Explain JVM memory areas."));

@@ -25,6 +25,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userMapper = userMapper;
     }
 
+    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+        this(jwtUtil, null);
+    }
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -44,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         jwtUtil.getUserIdFromToken(token),
                         jwtUtil.getUsernameFromToken(token)
                 );
-                User user = userMapper.selectById(principal.userId());
+                User user = userMapper == null ? null : userMapper.selectById(principal.userId());
                 String role = user == null || user.getRole() == null ? "USER" : user.getRole();
 
                 UsernamePasswordAuthenticationToken authentication =

@@ -10,6 +10,8 @@ import com.example.aiinterviewassistant.mapper.AiModelPolicyMapper;
 import com.example.aiinterviewassistant.mapper.AnswerRecordMapper;
 import com.example.aiinterviewassistant.mapper.UserAiPreferenceMapper;
 import com.example.aiinterviewassistant.mapper.UserMapper;
+import com.example.aiinterviewassistant.mapper.KnowledgeTopicMapper;
+import com.example.aiinterviewassistant.mapper.KnowledgeQuestionMapper;
 import com.example.aiinterviewassistant.service.AiModelCatalogService;
 import com.example.aiinterviewassistant.service.UserAiPreferenceService;
 import com.example.aiinterviewassistant.utils.JwtUtil;
@@ -57,6 +59,12 @@ class AiModelControllerTest {
 
     @MockBean
     private UserMapper userMapper;
+
+    @MockBean
+    private KnowledgeTopicMapper knowledgeTopicMapper;
+
+    @MockBean
+    private KnowledgeQuestionMapper knowledgeQuestionMapper;
 
     @MockBean
     private AiModelMapper aiModelMapper;
