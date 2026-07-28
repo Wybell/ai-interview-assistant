@@ -16,6 +16,8 @@ function getErrorMessage(error: unknown): string {
 
 export const useInterviewStore = defineStore('interview', {
   state: () => ({
+    direction: 'backend' as 'frontend' | 'backend',
+    language: 'Java',
     tag: 'HashMap',
     question: '',
     answer: '',
@@ -44,7 +46,12 @@ export const useInterviewStore = defineStore('interview', {
       this.questionLoading = true;
       this.questionError = '';
       try {
-        const question = await generateQuestion({ tag, refresh });
+        const question = await generateQuestion({
+          direction: this.direction,
+          language: this.language,
+          tag,
+          refresh,
+        });
         this.question = question;
         this.answer = '';
         this.resetScore();

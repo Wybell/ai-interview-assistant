@@ -39,6 +39,8 @@ export interface StudyProgress {
 }
 
 export interface QuestionRequest {
+  direction: 'frontend' | 'backend';
+  language: string;
   tag: string;
   refresh: boolean;
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RefreshCw, Sparkles } from '@lucide/vue';
-import { onMounted, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import AnswerEditor from '@/components/interview/AnswerEditor.vue';
@@ -10,7 +10,22 @@ import { useInterviewStore } from '@/stores/interview';
 
 const route = useRoute();
 const interviewStore = useInterviewStore();
-const commonTags = ['HashMap', 'ConcurrentHashMap', 'JVM', 'Spring', 'MySQL', 'Redis'];
+const knowledgeOptions = {
+  frontend: ['JavaScript 基础', 'TypeScript 类型', 'Vue 组件', 'React Hooks', '浏览器原理', 'CSS 布局'],
+  backend: ['集合框架', '并发编程', 'JVM', 'Spring', 'MySQL', 'Redis'],
+} as const;
+const languageOptions = {
+  frontend: ['JavaScript', 'TypeScript', 'Vue', 'React'],
+  backend: ['Java', 'Python', 'Go', 'C#', 'Node.js', 'TypeScript'],
+} as const;
+const availableTags = computed(() => knowledgeOptions[interviewStore.direction]);
+
+function handleDirectionChange(): void {
+  interviewStore.language = languageOptions[interviewStore.direction][0];
+  interviewStore.tag = '';
+  interviewStore.question = '';
+  interviewStore.resetScore();
+}
 
 function applyTagFromRoute(): void {
   const tag = route.query.tag;
@@ -36,6 +51,27 @@ watch(() => route.query.tag, applyTagFromRoute);
       </div>
       <div class="practice-controls">
         <el-select
+          v-model="interviewStore.direction"
+          :disabled="interviewStore.questionLoading || interviewStore.scoreStatus === 'streaming'"
+          aria-label="选择面试方向"
+          @change="handleDirectionChange"
+        >
+          <el-option label="前端" value="frontend" />
+          <el-option label="后端" value="backend" />
+        </el-select>
+        <el-select
+          v-model="interviewStore.language"
+          :disabled="interviewStore.questionLoading || interviewStore.scoreStatus === 'streaming'"
+          aria-label="选择语言或技术栈"
+        >
+          <el-option
+            v-for="language in languageOptions[interviewStore.direction]"
+            :key="language"
+            :label="language"
+            :value="language"
+          />
+        </el-select>
+        <el-select
           v-model="interviewStore.tag"
           filterable
           allow-create
@@ -44,7 +80,7 @@ watch(() => route.query.tag, applyTagFromRoute);
           aria-label="选择知识点"
           placeholder="输入知识点"
         >
-          <el-option v-for="tag in commonTags" :key="tag" :label="tag" :value="tag" />
+          <el-option v-for="tag in availableTags" :key="tag" :label="tag" :value="tag" />
         </el-select>
         <el-tooltip content="生成一题新题目" placement="bottom">
           <el-button
@@ -126,7 +162,7 @@ watch(() => route.query.tag, applyTagFromRoute);
 }
 
 .practice-controls :deep(.el-select) {
-  width: 184px;
+  width: 150px;
 }
 
 .practice-layout {
