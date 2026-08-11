@@ -119,6 +119,24 @@ repository-root/
 - 当前 SSE 使用 URL Token 仅为旧静态页面兼容方案，不应作为前后端分离后的正式认证方式；后续需改为 Cookie 或支持请求头的流式方案。
 - JWT 过滤器和 Security Web 测试已添加但尚未执行；仍缺少 `InterviewService`、`StudyService` 和 SSE 的针对性测试。
 
+## 部署准备进度（2026-07-29）
+
+- 本地 Docker 联调已通过：Vue 开发服务器可访问 Docker 化 Spring Boot 后端，后端已连通本机 MySQL、Docker Redis 和 AI 服务。
+- 新增 `backend/Dockerfile`、`backend/docker-compose.yml` 用于本地 Docker 联调；后端实际监听端口统一为 `8082`。
+- `backend/Dockerfile` 已改为 Maven 多阶段源码构建，Docker 镜像不再依赖未提交的本机 `target/*.jar`；新增 `backend/.dockerignore` 排除本机构建产物和环境文件。
+- Docker 构建直接使用 Maven 基础镜像内置的 `mvn`，不依赖 Windows Maven Wrapper，避免换行格式和 Wrapper 下载链路导致的跨平台失败。
+- Docker 容器中 Maven Central 的默认 DNS 解析仅返回不可用的 IPv6 地址；构建阶段已强制 JVM 优先 IPv4，并通过容器内 `wget -4` 访问 Maven Central 返回 `200 OK` 验证网络路径。
+- 后端镜像构建不再执行额外的 `dependency:go-offline` 插件解析；改为直接执行项目自身的 `mvn package` 并配置 Maven 下载重试，避开非必要旧插件依赖的 TLS 握手失败。
+- Docker 构建新增无凭据的阿里云 Maven 公共镜像配置；容器内已验证 Spring Boot 2.7.18 和 DashScope 2.22.16 均可返回 `200 OK`，用于降低 Maven Central 大量下载时的 TLS 不稳定性。
+- 源码构建镜像的本机验证待完成：当前 Docker Desktop 引擎未启动，尚未实际执行 `docker build`；生产 Compose 仍不得直接提交或部署，需继续补齐前端服务并核验服务器数据卷。
+- 已新增 Vue 前端多阶段 Docker 构建和 Nginx SPA 静态服务配置；生产 Compose 现包含仅监听 `127.0.0.1:${FRONTEND_HOST_PORT}:80` 的前端容器，示例端口为 `8085`。切换前必须在腾讯云确认该端口空闲，并配置宿主机 Nginx 将 `/` 代理到此前端、`/api/` 代理到后端。
+- 生产 MySQL 已显式保留 `127.0.0.1:3306:3306` 映射，供 SSH 隧道数据库管理使用；该端口绝不开放到公网。首次云端切换前仍需只读核验现有 Docker volume 名称，避免错误创建空数据库。
+- 新增 `backend/docker-compose.prod.yml` 和 `.env.prod.example`，用于腾讯云单机部署 MySQL 8、Redis 与后端。真实数据库密码、JWT 和 AI Key 继续只保存在服务器外部配置，不进入 Git。
+- 生产数据库方案已调整为腾讯云服务器内 MySQL Docker 数据卷中的全新 `interview_db`，不迁移或删除历史数据；首次启动由 Flyway 自动执行版本化迁移。
+- 生产 Compose 已通过本地语法校验，尚未上传腾讯云、尚未创建真实生产数据库密码、尚未启动云端容器或配置 Nginx/HTTPS。
+
+当前最高优先级：在腾讯云服务器创建外部 `.env` 与 `application-prod.properties`，上传后端部署文件，启动 MySQL、Redis 和后端容器，再部署 Nginx 前端与 HTTPS。
+
 ## 长期目标技术栈
 
 目标是逐步完善为成熟单体项目，后续可演进到微服务：

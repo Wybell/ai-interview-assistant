@@ -1,0 +1,27 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ai-interview-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-interview-backend
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    volumes:
+      - C:/Users/Lenovo/.ai-interview/application-local.properties:/app/config/application-local.properties:ro
+    environment:
+      REDIS_HOST: redis
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/app/config/application-local.properties
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:

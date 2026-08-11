@@ -38,6 +38,7 @@ build/
 .env
 .env.*
 !.env.example
+!backend/.env.prod.example
 application-local.properties
 application-local.yml
 application-local.yaml
