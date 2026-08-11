@@ -4,6 +4,7 @@ import {
   ChartBar,
   ClipboardList,
   Library,
+  MessagesSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Sparkles,
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 const authStore = useAuthStore();
 
 const navigation = [
+  { name: 'mock-interview', label: '模拟面试', icon: MessagesSquare },
   { name: 'practice', label: '面试训练', icon: BookOpen },
   { name: 'mistakes', label: '错题本', icon: ClipboardList },
   { name: 'progress', label: '学习进度', icon: ChartBar },
@@ -68,7 +70,11 @@ function handleNavigation(): void {
       </el-tooltip>
     </nav>
     <nav v-if="authStore.role === 'ADMIN'" class="sidebar__nav" aria-label="管理导航">
-      <RouterLink :to="{ name: adminNavigation.name }" class="sidebar__link" @click="handleNavigation">
+      <RouterLink
+        :to="{ name: adminNavigation.name }"
+        class="sidebar__link"
+        @click="handleNavigation"
+      >
         <component :is="adminNavigation.icon" :size="19" stroke-width="1.8" />
         <span v-if="!collapsed">{{ adminNavigation.label }}</span>
       </RouterLink>

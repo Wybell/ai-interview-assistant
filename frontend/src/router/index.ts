@@ -23,10 +23,23 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', redirect: { name: 'practice' } },
       { path: 'practice', name: 'practice', component: () => import('@/views/PracticeView.vue') },
+      {
+        path: 'mock-interview',
+        name: 'mock-interview',
+        component: () => import('@/views/MockInterviewView.vue'),
+      },
       { path: 'mistakes', name: 'mistakes', component: () => import('@/views/MistakesView.vue') },
       { path: 'progress', name: 'progress', component: () => import('@/views/ProgressView.vue') },
-      { path: 'knowledge', name: 'knowledge', component: () => import('@/views/KnowledgeView.vue') },
-      { path: 'admin/knowledge', name: 'admin-knowledge', component: () => import('@/views/AdminKnowledgeView.vue') },
+      {
+        path: 'knowledge',
+        name: 'knowledge',
+        component: () => import('@/views/KnowledgeView.vue'),
+      },
+      {
+        path: 'admin/knowledge',
+        name: 'admin-knowledge',
+        component: () => import('@/views/AdminKnowledgeView.vue'),
+      },
     ],
   },
   {

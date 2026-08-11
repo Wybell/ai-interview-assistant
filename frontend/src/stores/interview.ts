@@ -19,6 +19,7 @@ export const useInterviewStore = defineStore('interview', {
     direction: 'backend' as 'frontend' | 'backend',
     language: 'Java',
     tag: 'HashMap',
+    knowledgeTopicId: null as number | null,
     question: '',
     answer: '',
     questionLoading: false,
@@ -50,6 +51,7 @@ export const useInterviewStore = defineStore('interview', {
           direction: this.direction,
           language: this.language,
           tag,
+          knowledgeTopicId: this.knowledgeTopicId ?? undefined,
           refresh,
         });
         this.question = question;
