@@ -989,3 +989,13 @@ Cloud release
 - Frontend cleanup and POST SSE request coverage are complete.
 - Backend OpenAPI contract verification passed. Frontend lint, 6 tests, and production build passed.
 - The next verification is the full backend regression and an authenticated local POST SSE smoke test.
+
+## Current Status (2026-08-12)
+
+- Added the `custom` OpenAI Responses-compatible provider. Its endpoint, API key, reasoning effort, and response-storage setting are external-only configuration. The selectable catalog is now limited to `5.6 Terra` and `5.6 Luna`; the default policy is Luna and Sol is not catalogued.
+- Added knowledge-base-grounded question generation. A selected published `knowledgeTopicId` is validated against direction and language, its document content is bounded before prompt use, and the question cache keeps custom and knowledge-base sources separate.
+- Added resume upload and private server-side storage for PDF, DOCX, and TXT files up to 2 MB. Resume content is not exposed as a static file or stored in Git. Production Compose persists `/opt/ai-interview/uploads/resumes` across backend container recreation.
+- Added first-, second-, and third-round mock interview sessions, one-question-at-a-time scoring, follow-up generation, and an AI-generated closing report. Session and turn records are owned by the authenticated user and are managed by Flyway V7.
+- Verification passed: `mvn test` with `FLYWAY_ENABLED=false` completed 92 tests successfully; frontend lint, 6 tests, and production build passed. Browser screenshots confirmed desktop practice and mobile mock-interview layouts with mocked API responses. A real end-to-end test still requires setting the custom provider's complete Responses URL and credentials outside Git, then enabling the V6/V7 Flyway release in a controlled environment.
+
+Current highest priority: configure and validate the custom Responses endpoint and key only in local/server external configuration, then run a real authenticated upload and mock-interview smoke test before cloud deployment.
