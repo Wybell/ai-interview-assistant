@@ -12,6 +12,9 @@ import com.example.aiinterviewassistant.mapper.UserAiPreferenceMapper;
 import com.example.aiinterviewassistant.mapper.UserMapper;
 import com.example.aiinterviewassistant.mapper.KnowledgeTopicMapper;
 import com.example.aiinterviewassistant.mapper.KnowledgeQuestionMapper;
+import com.example.aiinterviewassistant.mapper.MockInterviewSessionMapper;
+import com.example.aiinterviewassistant.mapper.MockInterviewTurnMapper;
+import com.example.aiinterviewassistant.mapper.ResumeDocumentMapper;
 import com.example.aiinterviewassistant.sse.InterviewScoreSseAdapter;
 import com.example.aiinterviewassistant.service.InterviewService;
 import com.example.aiinterviewassistant.service.StudyService;
@@ -76,6 +79,15 @@ class SecurityApiTest {
 
     @MockBean
     private KnowledgeQuestionMapper knowledgeQuestionMapper;
+
+    @MockBean
+    private MockInterviewSessionMapper mockInterviewSessionMapper;
+
+    @MockBean
+    private MockInterviewTurnMapper mockInterviewTurnMapper;
+
+    @MockBean
+    private ResumeDocumentMapper resumeDocumentMapper;
 
     @Test
     void shouldReturnUnauthorizedApiResponseWhenTokenIsMissing() throws Exception {
@@ -146,7 +158,7 @@ class SecurityApiTest {
         when(jwtUtil.getUserIdFromToken("valid-token")).thenReturn(1L);
         when(jwtUtil.getUsernameFromToken("valid-token")).thenReturn("alice");
         when(userContext.getCurrentUserId()).thenReturn(1L);
-        when(interviewService.askQuestion(1L, "backend", "Java", "JVM", false))
+        when(interviewService.askQuestion(1L, "backend", "Java", "JVM", null, false))
                 .thenReturn("Explain JVM memory areas.");
 
         mockMvc.perform(post("/api/question/ask")

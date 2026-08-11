@@ -42,6 +42,7 @@ services:
       - "127.0.0.1:8082:8082"
     volumes:
       - /opt/ai-interview/config/application-prod.properties:/app/config/application-prod.properties:ro
+      - /opt/ai-interview/uploads/resumes:/opt/ai-interview/uploads/resumes
     environment:
       SPRING_CONFIG_ADDITIONAL_LOCATION: file:/app/config/application-prod.properties
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/interview_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf-8

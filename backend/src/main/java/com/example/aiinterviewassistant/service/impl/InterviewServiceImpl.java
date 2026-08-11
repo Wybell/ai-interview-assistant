@@ -8,7 +8,9 @@ import com.example.aiinterviewassistant.mapper.AnswerRecordMapper;
 import com.example.aiinterviewassistant.model.EffectiveAiModel;
 import com.example.aiinterviewassistant.service.AiService;
 import com.example.aiinterviewassistant.service.InterviewService;
+import com.example.aiinterviewassistant.service.KnowledgeRetrievalService;
 import com.example.aiinterviewassistant.service.UserAiPreferenceService;
+import com.example.aiinterviewassistant.model.KnowledgeContext;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -26,27 +28,47 @@ public class InterviewServiceImpl implements InterviewService {
 
     private final UserAiPreferenceService userAiPreferenceService;
 
+    private final KnowledgeRetrievalService knowledgeRetrievalService;
+
     public InterviewServiceImpl(
             RedisTemplate<String, String> redisTemplate,
             AiService aiService,
             AnswerRecordMapper answerRecordMapper,
-            UserAiPreferenceService userAiPreferenceService) {
+            UserAiPreferenceService userAiPreferenceService,
+            KnowledgeRetrievalService knowledgeRetrievalService) {
         this.redisTemplate = redisTemplate;
         this.aiService = aiService;
         this.answerRecordMapper = answerRecordMapper;
         this.userAiPreferenceService = userAiPreferenceService;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
     }
 
     @Override
     public String askQuestion(Long userId, String direction, String language, String tag, boolean refresh) {
+        return askQuestion(userId, direction, language, tag, null, refresh);
+    }
+
+    @Override
+    public String askQuestion(
+            Long userId,
+            String direction,
+            String language,
+            String tag,
+            Long knowledgeTopicId,
+            boolean refresh) {
         if (userId == null) {
             throw new BusinessException(401, "请先登录");
         }
 
         validateScope(direction, language);
         EffectiveAiModel aiModel = userAiPreferenceService.resolveEffectiveModel(userId);
+        KnowledgeContext knowledgeContext = knowledgeTopicId == null
+                ? null
+                : knowledgeRetrievalService.getPublishedContext(knowledgeTopicId, direction, language);
+        String effectiveTag = knowledgeContext == null ? tag : knowledgeContext.title();
         String cacheKey = "question:" + userId + ":model:" + aiModel.id()
-                + ":" + direction + ":" + language + ":" + tag;
+                + ":" + direction + ":" + language + ":"
+                + (knowledgeContext == null ? "custom:" + tag : "knowledge:" + knowledgeContext.topicId());
 
         if (!refresh) {
             String cached = redisTemplate.opsForValue().get(cacheKey);
@@ -55,7 +77,7 @@ public class InterviewServiceImpl implements InterviewService {
             }
         }
 
-        String questionText = aiService.generateQuestion(aiModel, direction, language, tag);
+        String questionText = aiService.generateQuestion(aiModel, direction, language, effectiveTag, knowledgeContext);
 
         redisTemplate.opsForValue().set(
                 cacheKey,

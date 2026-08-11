@@ -9,6 +9,8 @@ public interface UserAiPreferenceService {
 
     EffectiveAiModel resolveDefaultModel();
 
+    EffectiveAiModel resolveAvailableModel(Long modelId);
+
     AiModelPreferenceResponse getEffectivePreference(Long userId);
 
     AiModelPreferenceResponse updatePreference(Long userId, Long modelId);

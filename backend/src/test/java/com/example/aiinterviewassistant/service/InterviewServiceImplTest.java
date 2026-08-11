@@ -62,6 +62,9 @@ class InterviewServiceImplTest {
     @Mock
     private UserAiPreferenceService userAiPreferenceService;
 
+    @Mock
+    private KnowledgeRetrievalService knowledgeRetrievalService;
+
     @InjectMocks
     private InterviewServiceImpl interviewService;
 
@@ -69,7 +72,7 @@ class InterviewServiceImplTest {
     void shouldReturnCachedQuestionWithoutCallingAi() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(userAiPreferenceService.resolveEffectiveModel(1L)).thenReturn(DEEPSEEK_MODEL);
-        when(valueOperations.get("question:1:model:1:backend:Java:Java")).thenReturn("cached question");
+        when(valueOperations.get("question:1:model:1:backend:Java:custom:Java")).thenReturn("cached question");
 
         String question = interviewService.askQuestion(1L, "Java", false);
 
@@ -81,14 +84,14 @@ class InterviewServiceImplTest {
     void shouldRefreshQuestionAndStoreItInRedis() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(userAiPreferenceService.resolveEffectiveModel(1L)).thenReturn(DEEPSEEK_MODEL);
-        when(aiService.generateQuestion(DEEPSEEK_MODEL, "backend", "Java", "Java")).thenReturn("new question");
+        when(aiService.generateQuestion(DEEPSEEK_MODEL, "backend", "Java", "Java", null)).thenReturn("new question");
 
         String question = interviewService.askQuestion(1L, "Java", true);
 
         assertThat(question).isEqualTo("new question");
-        verify(aiService).generateQuestion(DEEPSEEK_MODEL, "backend", "Java", "Java");
+        verify(aiService).generateQuestion(DEEPSEEK_MODEL, "backend", "Java", "Java", null);
         verify(valueOperations).set(
-                "question:1:model:1:backend:Java:Java",
+                "question:1:model:1:backend:Java:custom:Java",
                 "new question",
                 Duration.ofHours(1)
         );
@@ -173,8 +176,8 @@ class InterviewServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(userAiPreferenceService.resolveEffectiveModel(1L))
                 .thenReturn(DEEPSEEK_MODEL, CHANGE2PRO_MODEL);
-        when(valueOperations.get("question:1:model:1:backend:Java:Java")).thenReturn("DeepSeek question");
-        when(aiService.generateQuestion(CHANGE2PRO_MODEL, "backend", "Java", "Java"))
+        when(valueOperations.get("question:1:model:1:backend:Java:custom:Java")).thenReturn("DeepSeek question");
+        when(aiService.generateQuestion(CHANGE2PRO_MODEL, "backend", "Java", "Java", null))
                 .thenReturn("GPT question");
 
         String initialQuestion = interviewService.askQuestion(1L, "Java", false);
@@ -183,7 +186,7 @@ class InterviewServiceImplTest {
         assertThat(initialQuestion).isEqualTo("DeepSeek question");
         assertThat(questionAfterSwitch).isEqualTo("GPT question");
         verify(valueOperations).set(
-                "question:1:model:2:backend:Java:Java",
+                "question:1:model:2:backend:Java:custom:Java",
                 "GPT question",
                 Duration.ofHours(1)
         );
@@ -194,8 +197,8 @@ class InterviewServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(userAiPreferenceService.resolveEffectiveModel(1L)).thenReturn(DEEPSEEK_MODEL);
         when(userAiPreferenceService.resolveEffectiveModel(2L)).thenReturn(CHANGE2PRO_MODEL);
-        when(aiService.generateQuestion(DEEPSEEK_MODEL, "backend", "Java", "Java")).thenReturn("DeepSeek question");
-        when(aiService.generateQuestion(CHANGE2PRO_MODEL, "backend", "Java", "Java")).thenReturn("GPT question");
+        when(aiService.generateQuestion(DEEPSEEK_MODEL, "backend", "Java", "Java", null)).thenReturn("DeepSeek question");
+        when(aiService.generateQuestion(CHANGE2PRO_MODEL, "backend", "Java", "Java", null)).thenReturn("GPT question");
 
         String firstUserQuestion = interviewService.askQuestion(1L, "Java", true);
         String secondUserQuestion = interviewService.askQuestion(2L, "Java", true);
@@ -203,12 +206,12 @@ class InterviewServiceImplTest {
         assertThat(firstUserQuestion).isEqualTo("DeepSeek question");
         assertThat(secondUserQuestion).isEqualTo("GPT question");
         verify(valueOperations).set(
-                "question:1:model:1:backend:Java:Java",
+                "question:1:model:1:backend:Java:custom:Java",
                 "DeepSeek question",
                 Duration.ofHours(1)
         );
         verify(valueOperations).set(
-                "question:2:model:2:backend:Java:Java",
+                "question:2:model:2:backend:Java:custom:Java",
                 "GPT question",
                 Duration.ofHours(1)
         );

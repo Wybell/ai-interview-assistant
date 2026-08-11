@@ -49,3 +49,6 @@ application-local.yaml
 # Logs
 *.log
 logs/
+
+# Private locally stored resume files
+/backend/uploads/

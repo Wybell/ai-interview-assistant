@@ -24,4 +24,12 @@ public class AiProperties {
     private String deepseekApiKey;
 
     private String deepseekEndpoint;
+
+    private String customApiKey;
+
+    private String customEndpoint;
+
+    private String customReasoningEffort;
+
+    private boolean customDisableResponseStorage = true;
 }

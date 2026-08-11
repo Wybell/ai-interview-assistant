@@ -70,6 +70,15 @@ public class UserAiPreferenceServiceImpl implements UserAiPreferenceService {
     }
 
     @Override
+    public EffectiveAiModel resolveAvailableModel(Long modelId) {
+        AiModel aiModel = aiModelMapper.selectById(modelId);
+        if (!isSelectable(aiModel)) {
+            throw new BusinessException(503, "Selected AI model is unavailable");
+        }
+        return toEffectiveModel(aiModel, false);
+    }
+
+    @Override
     public AiModelPreferenceResponse getEffectivePreference(Long userId) {
         return toResponse(resolveEffectiveModel(userId));
     }

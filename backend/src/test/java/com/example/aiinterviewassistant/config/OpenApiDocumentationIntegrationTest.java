@@ -12,6 +12,9 @@ import com.example.aiinterviewassistant.mapper.UserAiPreferenceMapper;
 import com.example.aiinterviewassistant.mapper.UserMapper;
 import com.example.aiinterviewassistant.mapper.KnowledgeTopicMapper;
 import com.example.aiinterviewassistant.mapper.KnowledgeQuestionMapper;
+import com.example.aiinterviewassistant.mapper.MockInterviewSessionMapper;
+import com.example.aiinterviewassistant.mapper.MockInterviewTurnMapper;
+import com.example.aiinterviewassistant.mapper.ResumeDocumentMapper;
 import com.example.aiinterviewassistant.security.RestSecurityExceptionHandler;
 import com.example.aiinterviewassistant.service.AiModelCatalogService;
 import com.example.aiinterviewassistant.service.AuthService;
@@ -123,6 +126,15 @@ class OpenApiDocumentationIntegrationTest {
 
     @MockBean
     private KnowledgeQuestionMapper knowledgeQuestionMapper;
+
+    @MockBean
+    private MockInterviewSessionMapper mockInterviewSessionMapper;
+
+    @MockBean
+    private MockInterviewTurnMapper mockInterviewTurnMapper;
+
+    @MockBean
+    private ResumeDocumentMapper resumeDocumentMapper;
 
     @Test
     void shouldExposeOpenApiDocumentationWithoutAuthentication() throws Exception {
