@@ -16,7 +16,7 @@ function isApiResponse(value: unknown): value is ApiResponse<unknown> {
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30_000,
+  timeout: 90_000,
 });
 
 apiClient.interceptors.request.use((config) => {

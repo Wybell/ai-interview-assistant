@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, FileText, Play, Send, Trash2, Upload } from '@lucide/vue';
+import { ArrowRight, Eye, FileText, Play, Send, Trash2, Upload } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 
 import {
@@ -8,17 +8,19 @@ import {
   finishMockInterview,
   getNextMockInterviewQuestion,
 } from '@/api/mock-interview-api';
-import { deleteResume, getResumes, uploadResume } from '@/api/resume-api';
+import { deleteResume, getResumes, previewResume, uploadResume } from '@/api/resume-api';
 import type {
   InterviewRound,
   MockInterviewSession,
   MockInterviewTurn,
   ResumeDocument,
+  ResumePreview,
 } from '@/types/interview';
 
 const resumes = ref<ResumeDocument[]>([]);
 const selectedResumeId = ref<number | null>(null);
 const targetPosition = ref('Java 后端实习生');
+const targetCompany = ref('');
 const interviewRound = ref<InterviewRound>('FIRST');
 const session = ref<MockInterviewSession | null>(null);
 const answerDraft = ref('');
@@ -26,13 +28,27 @@ const loading = ref(false);
 const uploadLoading = ref(false);
 const error = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
+const previewVisible = ref(false);
+const previewLoading = ref(false);
+const previewError = ref('');
+const previewDocument = ref<ResumePreview | null>(null);
 
 const currentTurn = computed(() => session.value?.turns.at(-1) ?? null);
 const currentTurnAnswered = computed(() => Boolean(currentTurn.value?.userAnswer));
+const roundLabels: Record<InterviewRound, string> = {
+  FIRST: '初轮技术面',
+  SECOND: '深入技术面',
+  THIRD: '综合终面',
+};
+const roundDescriptions: Record<InterviewRound, string> = {
+  FIRST: '简历核验、基础知识、项目概述与表达沟通',
+  SECOND: '项目深挖、原理、排障、技术取舍与场景追问',
+  THIRD: '系统设计、业务理解、协作、责任意识与决策判断',
+};
 const roundOptions: Array<{ value: InterviewRound; label: string; description: string }> = [
-  { value: 'FIRST', label: '一面', description: '经历、基础与沟通' },
-  { value: 'SECOND', label: '二面', description: '项目深度与技术取舍' },
-  { value: 'THIRD', label: '三面', description: '架构、协作与业务判断' },
+  { value: 'FIRST', label: '初轮技术面', description: '简历核验、基础知识、项目概述与表达沟通' },
+  { value: 'SECOND', label: '深入技术面', description: '项目深挖、原理、排障、技术取舍与场景追问' },
+  { value: 'THIRD', label: '综合终面', description: '系统设计、业务理解、协作、责任意识与决策判断' },
 ];
 
 function getErrorMessage(requestError: unknown, fallback: string): string {
@@ -90,6 +106,20 @@ async function removeResume(resume: ResumeDocument): Promise<void> {
   }
 }
 
+async function viewResume(resume: ResumeDocument): Promise<void> {
+  previewVisible.value = true;
+  previewLoading.value = true;
+  previewError.value = '';
+  previewDocument.value = null;
+  try {
+    previewDocument.value = await previewResume(resume.id);
+  } catch (requestError) {
+    previewError.value = getErrorMessage(requestError, '简历预览加载失败');
+  } finally {
+    previewLoading.value = false;
+  }
+}
+
 async function startInterview(): Promise<void> {
   if (!selectedResumeId.value || !targetPosition.value.trim()) {
     error.value = '请选择简历并填写目标岗位';
@@ -101,6 +131,7 @@ async function startInterview(): Promise<void> {
     session.value = await createMockInterview({
       resumeId: selectedResumeId.value,
       targetPosition: targetPosition.value.trim(),
+      targetCompany: targetCompany.value.trim() || undefined,
       interviewRound: interviewRound.value,
     });
     answerDraft.value = '';
@@ -172,6 +203,22 @@ async function finishInterview(): Promise<void> {
   }
 }
 
+function returnToSetup(resetScenario: boolean): void {
+  if (session.value && !resetScenario) {
+    targetPosition.value = session.value.targetPosition;
+    targetCompany.value = session.value.targetCompany ?? '';
+    interviewRound.value = session.value.interviewRound;
+  }
+  if (resetScenario) {
+    targetPosition.value = '';
+    targetCompany.value = '';
+    interviewRound.value = 'FIRST';
+  }
+  session.value = null;
+  answerDraft.value = '';
+  error.value = '';
+}
+
 onMounted(() => void loadResumes());
 </script>
 
@@ -219,6 +266,17 @@ onMounted(() => void loadResumes());
               ><strong>{{ resume.fileName }}</strong
               ><small>{{ new Date(resume.createTime).toLocaleDateString('zh-CN') }}</small></span
             >
+            <el-tooltip content="查看简历">
+              <button
+                type="button"
+                class="icon-button"
+                :disabled="previewLoading"
+                aria-label="查看简历"
+                @click.prevent="viewResume(resume)"
+              >
+                <Eye :size="17" />
+              </button>
+            </el-tooltip>
             <el-tooltip content="删除简历"
               ><button
                 type="button"
@@ -250,19 +308,32 @@ onMounted(() => void loadResumes());
               maxlength="100"
               show-word-limit
               placeholder="例如：Java 后端实习生" /></el-form-item
-          ><el-form-item label="面试轮次"
-            ><el-radio-group v-model="interviewRound"
-              ><el-radio-button
+          ><el-form-item label="面试轮次">
+            <div class="round-options" role="radiogroup" aria-label="面试轮次">
+              <label
                 v-for="round in roundOptions"
                 :key="round.value"
-                :label="round.value"
-                >{{ round.label }}</el-radio-button
-              ></el-radio-group
-            >
-            <p class="round-description">
-              {{ roundOptions.find((round) => round.value === interviewRound)?.description }}
-            </p></el-form-item
-          >
+                class="round-option"
+                :class="{ 'round-option--selected': interviewRound === round.value }"
+              >
+                <input v-model="interviewRound" type="radio" name="interview-round" :value="round.value" />
+                <span class="round-option__content">
+                  <strong>{{ round.label }}</strong>
+                  <small>{{ round.description }}</small>
+                </span>
+              </label>
+            </div>
+            <p class="round-description">{{ roundDescriptions[interviewRound] }}</p>
+          </el-form-item>
+          <el-form-item label="目标公司（选填）" class="company-field">
+            <el-input
+              v-model="targetCompany"
+              maxlength="100"
+              show-word-limit
+              placeholder="例如：腾讯、字节跳动、小米"
+            />
+            <p class="company-description">用于公司风格模拟；未填写时按通用岗位面试进行。</p>
+          </el-form-item>
         </div>
         <el-button
           type="primary"
@@ -331,21 +402,41 @@ onMounted(() => void loadResumes());
             <div>
               <dt>轮次</dt>
               <dd>
-                {{ roundOptions.find((round) => round.value === session?.interviewRound)?.label }}
+                {{ roundLabels[session.interviewRound] }}
               </dd>
             </div>
             <div>
               <dt>题数</dt>
               <dd>{{ session.questionCount }}/8</dd>
             </div>
+            <div v-if="session.targetCompany">
+              <dt>目标公司</dt>
+              <dd>{{ session.targetCompany }}</dd>
+            </div>
           </dl>
           <section v-if="session.summary" class="report">
             <h2>面试总结</h2>
             <p>{{ session.summary }}</p>
+            <div class="answer-actions">
+              <el-button type="primary" :icon="Play" @click="returnToSetup(false)">再来一场</el-button>
+              <el-button @click="returnToSetup(true)">重新设置</el-button>
+            </div>
           </section>
         </aside>
       </div>
     </template>
+
+    <el-drawer v-model="previewVisible" title="简历预览" size="min(720px, 92vw)">
+      <div v-if="previewLoading" class="preview-state">正在加载简历内容...</div>
+      <p v-else-if="previewError" class="error-message" role="alert">{{ previewError }}</p>
+      <div v-else-if="previewDocument" class="resume-preview">
+        <div class="resume-preview__meta">
+          <strong>{{ previewDocument.fileName }}</strong>
+          <span>{{ previewDocument.contentType }}</span>
+        </div>
+        <pre>{{ previewDocument.content }}</pre>
+      </div>
+    </el-drawer>
   </section>
 </template>
 
@@ -460,6 +551,44 @@ onMounted(() => void loadResumes());
   background: var(--danger-subtle);
   color: var(--danger);
 }
+.preview-state {
+  padding: 24px 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+.resume-preview {
+  display: grid;
+  gap: 16px;
+}
+.resume-preview__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.resume-preview__meta strong {
+  color: var(--ink-strong);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.resume-preview__meta span {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.resume-preview pre {
+  max-height: calc(100vh - 180px);
+  margin: 0;
+  overflow: auto;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .empty-message {
   padding: 18px 0;
   color: var(--ink-muted);
@@ -470,8 +599,64 @@ onMounted(() => void loadResumes());
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
 }
+.round-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.round-option {
+  position: relative;
+  display: block;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.round-option:hover {
+  border-color: var(--primary);
+}
+.round-option:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.round-option--selected {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+.round-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.round-option__content {
+  display: grid;
+  gap: 6px;
+}
+.round-option__content strong {
+  color: var(--ink-strong);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.round-option__content small {
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
 .round-description {
   margin-top: 8px;
+}
+.company-field {
+  grid-column: 1 / -1;
+}
+.company-description {
+  margin-top: 8px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 .interview-layout {
   display: grid;
@@ -571,6 +756,11 @@ onMounted(() => void loadResumes());
 @media (max-width: 900px) {
   .interview-layout,
   .setup-form {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .round-options {
     grid-template-columns: 1fr;
   }
 }

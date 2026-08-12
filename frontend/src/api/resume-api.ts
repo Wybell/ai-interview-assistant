@@ -1,5 +1,5 @@
 import { request } from '@/api/client';
-import type { ResumeDocument } from '@/types/interview';
+import type { ResumeDocument, ResumePreview } from '@/types/interview';
 
 export function getResumes(): Promise<ResumeDocument[]> {
   return request<ResumeDocument[]>({ url: '/resumes', method: 'get' });
@@ -13,4 +13,8 @@ export function uploadResume(file: File): Promise<ResumeDocument> {
 
 export function deleteResume(resumeId: number): Promise<void> {
   return request<void>({ url: `/resumes/${resumeId}`, method: 'delete' });
+}
+
+export function previewResume(resumeId: number): Promise<ResumePreview> {
+  return request<ResumePreview>({ url: `/resumes/${resumeId}/preview`, method: 'get' });
 }

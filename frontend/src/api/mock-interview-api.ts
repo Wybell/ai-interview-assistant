@@ -4,6 +4,7 @@ import type { InterviewRound, MockInterviewSession, MockInterviewTurn } from '@/
 export function createMockInterview(payload: {
   resumeId: number;
   targetPosition: string;
+  targetCompany?: string;
   interviewRound: InterviewRound;
 }): Promise<MockInterviewSession> {
   return request<MockInterviewSession>({ url: '/mock-interviews', method: 'post', data: payload });

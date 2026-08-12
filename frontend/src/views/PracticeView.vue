@@ -1,53 +1,45 @@
 <script setup lang="ts">
-import { RefreshCw, Sparkles } from '@lucide/vue';
+import { ArrowLeft, ArrowRight, Sparkles } from '@lucide/vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { getKnowledgeTopics } from '@/api/knowledge-api';
+import { getTechnicalTopics } from '@/api/interview-api';
 import AnswerEditor from '@/components/interview/AnswerEditor.vue';
 import QuestionPanel from '@/components/interview/QuestionPanel.vue';
 import ScoreFeedback from '@/components/interview/ScoreFeedback.vue';
 import { useInterviewStore } from '@/stores/interview';
 import type { KnowledgeTopic } from '@/types/knowledge';
 
-type PracticeMode = 'custom' | 'knowledge';
+type PracticeMode = 'custom' | 'knowledge' | 'technical';
 
 const route = useRoute();
 const interviewStore = useInterviewStore();
 const practiceMode = ref<PracticeMode>('custom');
+const practiceModeOptions: ReadonlyArray<{ value: PracticeMode; label: string }> = [
+  { value: 'custom', label: '自定义知识点' },
+  { value: 'knowledge', label: '知识库专题' },
+  { value: 'technical', label: '技术知识点' },
+];
 const knowledgeTopics = ref<KnowledgeTopic[]>([]);
 const knowledgeLoading = ref(false);
 const knowledgeError = ref('');
-
-const knowledgeOptions: Record<'frontend' | 'backend', Record<string, readonly string[]>> = {
-  frontend: {
-    JavaScript: ['JavaScript 基础', '异步编程', 'DOM 与事件', '浏览器原理'],
-    TypeScript: ['类型系统', '泛型', '类型体操', '工程配置'],
-    Vue: ['组件通信', 'Composition API', '响应式原理', 'Vue Router'],
-    React: ['组件设计', 'Hooks', '状态管理', 'React 性能优化'],
-  },
-  backend: {
-    Java: ['集合框架', '并发编程', 'JVM', 'Spring', 'MySQL', 'Redis'],
-    Python: ['Python 基础', '异步编程', 'FastAPI', 'Django'],
-    Go: ['Goroutine', 'Channel', 'Gin', '服务并发'],
-    'C#': ['C# 基础', '.NET', 'ASP.NET Core', 'Entity Framework'],
-    'Node.js': ['事件循环', 'Express', 'NestJS', 'Node.js 性能'],
-    TypeScript: ['Node.js 类型开发', 'NestJS', '异步编程', '服务架构'],
-  },
-};
+const technicalTopics = ref<string[]>([]);
+const technicalLoading = ref(false);
+const technicalError = ref('');
 const languageOptions = {
   frontend: ['JavaScript', 'TypeScript', 'Vue', 'React'],
   backend: ['Java', 'Python', 'Go', 'C#', 'Node.js', 'TypeScript'],
 } as const;
-const availableTags = computed(
-  () => knowledgeOptions[interviewStore.direction][interviewStore.language] ?? [],
-);
 const selectedKnowledgeTopic = computed(
   () => knowledgeTopics.value.find((topic) => topic.id === interviewStore.knowledgeTopicId) ?? null,
 );
 const sourceLabel = computed(() => {
   if (practiceMode.value === 'knowledge' && selectedKnowledgeTopic.value) {
     return `知识库专题：${selectedKnowledgeTopic.value.title}`;
+  }
+  if (practiceMode.value === 'technical') {
+    return `技术知识点：${interviewStore.tag || '未选择'}`;
   }
   return `自定义主题：${interviewStore.tag || '未选择'}`;
 });
@@ -60,15 +52,26 @@ function handleDirectionChange(): void {
 function handleLanguageChange(): void {
   interviewStore.tag = '';
   interviewStore.knowledgeTopicId = null;
-  interviewStore.question = '';
-  interviewStore.resetScore();
+  interviewStore.resetQuestionHistory();
 }
 
 function handlePracticeModeChange(mode: PracticeMode): void {
   practiceMode.value = mode;
+  interviewStore.questionMode = mode === 'knowledge'
+    ? 'KNOWLEDGE_BASE'
+    : mode === 'technical'
+      ? 'TECHNICAL_TOPIC'
+      : 'CUSTOM_TOPIC';
   interviewStore.knowledgeTopicId = null;
-  interviewStore.question = '';
-  interviewStore.resetScore();
+  interviewStore.tag = '';
+  if (mode === 'knowledge' && knowledgeTopics.value.length === 1) {
+    interviewStore.knowledgeTopicId = knowledgeTopics.value[0].id;
+    interviewStore.tag = knowledgeTopics.value[0].title;
+  }
+  if (mode === 'technical' && technicalTopics.value.length === 1) {
+    interviewStore.tag = technicalTopics.value[0];
+  }
+  interviewStore.resetQuestionHistory();
 }
 
 function handleKnowledgeTopicChange(topicId: number): void {
@@ -76,26 +79,45 @@ function handleKnowledgeTopicChange(topicId: number): void {
   if (topic) {
     interviewStore.tag = topic.title;
   }
-  interviewStore.question = '';
-  interviewStore.resetScore();
+  interviewStore.resetQuestionHistory();
+}
+
+function handleTechnicalTopicChange(): void {
+  interviewStore.resetQuestionHistory();
 }
 
 async function loadKnowledgeTopics(): Promise<void> {
   knowledgeLoading.value = true;
   knowledgeError.value = '';
+  technicalLoading.value = true;
+  technicalError.value = '';
   try {
-    knowledgeTopics.value = await getKnowledgeTopics(
-      interviewStore.direction,
-      interviewStore.language,
-    );
-    if (!knowledgeTopics.value.some((topic) => topic.id === interviewStore.knowledgeTopicId)) {
-      interviewStore.knowledgeTopicId = null;
+    const [loadedKnowledgeTopics, loadedTechnicalTopics] = await Promise.all([
+      getKnowledgeTopics(interviewStore.direction, interviewStore.language),
+      getTechnicalTopics(interviewStore.direction, interviewStore.language),
+    ]);
+    knowledgeTopics.value = loadedKnowledgeTopics;
+    technicalTopics.value = loadedTechnicalTopics;
+    if (practiceMode.value === 'knowledge' && !knowledgeTopics.value.some((topic) => topic.id === interviewStore.knowledgeTopicId)) {
+      interviewStore.knowledgeTopicId = knowledgeTopics.value.length === 1
+        ? knowledgeTopics.value[0].id
+        : null;
+    }
+    if (practiceMode.value === 'knowledge') {
+      interviewStore.tag = selectedKnowledgeTopic.value?.title ?? '';
+    }
+    if (practiceMode.value === 'technical' && !technicalTopics.value.includes(interviewStore.tag)) {
+      interviewStore.tag = technicalTopics.value.length === 1 ? technicalTopics.value[0] : '';
     }
   } catch (error) {
     knowledgeTopics.value = [];
-    knowledgeError.value = error instanceof Error ? error.message : '知识库专题加载失败';
+    technicalTopics.value = [];
+    const message = error instanceof Error ? error.message : '选项加载失败';
+    knowledgeError.value = message;
+    technicalError.value = message;
   } finally {
     knowledgeLoading.value = false;
+    technicalLoading.value = false;
   }
 }
 
@@ -114,7 +136,7 @@ function applyRouteSelection(): void {
     interviewStore.language = language;
   }
   if (Number.isInteger(topicId) && topicId > 0) {
-    practiceMode.value = 'knowledge';
+    handlePracticeModeChange('knowledge');
     interviewStore.knowledgeTopicId = topicId;
   }
   if (typeof tag === 'string' && tag.trim()) {
@@ -122,9 +144,31 @@ function applyRouteSelection(): void {
   }
 }
 
-async function generateQuestion(): Promise<void> {
+async function validateQuestionSource(): Promise<boolean> {
   if (practiceMode.value === 'knowledge' && !interviewStore.knowledgeTopicId) {
     interviewStore.questionError = '请先选择知识库专题';
+    return false;
+  }
+  if (practiceMode.value === 'knowledge' && knowledgeTopics.value.length === 0) {
+    interviewStore.questionError = '当前方向和语言暂无可用知识库专题';
+    return false;
+  }
+  if (practiceMode.value === 'technical' && !interviewStore.tag.trim()) {
+    interviewStore.questionError = '请先选择技术知识点';
+    return false;
+  }
+  return true;
+}
+
+async function generateQuestion(): Promise<void> {
+  if (!(await validateQuestionSource())) {
+    return;
+  }
+  await interviewStore.generate(true);
+}
+
+async function generateNextQuestion(): Promise<void> {
+  if (!(await validateQuestionSource())) {
     return;
   }
   await interviewStore.generate(true);
@@ -132,6 +176,11 @@ async function generateQuestion(): Promise<void> {
 
 onMounted(() => {
   applyRouteSelection();
+  interviewStore.questionMode = practiceMode.value === 'knowledge'
+    ? 'KNOWLEDGE_BASE'
+    : practiceMode.value === 'technical'
+      ? 'TECHNICAL_TOPIC'
+      : 'CUSTOM_TOPIC';
   void loadKnowledgeTopics();
 });
 watch(
@@ -175,30 +224,35 @@ watch(() => route.query, applyRouteSelection, { deep: true });
     </header>
 
     <div class="practice-source" role="group" aria-label="选择出题来源">
-      <el-radio-group
+      <div
         class="practice-mode"
-        :model-value="practiceMode"
-        :disabled="interviewStore.questionLoading || interviewStore.scoreStatus === 'streaming'"
-        @update:model-value="handlePracticeModeChange"
+        role="radiogroup"
+        aria-label="选择出题来源"
       >
-        <el-radio-button label="custom">自定义主题</el-radio-button>
-        <el-radio-button label="knowledge">知识库专题</el-radio-button>
-      </el-radio-group>
-      <el-select
+        <button
+          v-for="option in practiceModeOptions"
+          :key="option.value"
+          type="button"
+          class="practice-mode__button"
+          :class="{ 'is-active': practiceMode === option.value }"
+          :aria-checked="practiceMode === option.value"
+          role="radio"
+          :disabled="interviewStore.questionLoading || interviewStore.scoreStatus === 'streaming'"
+          @click="handlePracticeModeChange(option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+      <el-input
         v-if="practiceMode === 'custom'"
         v-model="interviewStore.tag"
         class="source-select"
-        filterable
-        allow-create
-        default-first-option
         :disabled="interviewStore.questionLoading || interviewStore.scoreStatus === 'streaming'"
-        aria-label="输入或选择知识点"
+        aria-label="输入自定义知识点"
         placeholder="输入知识点"
-      >
-        <el-option v-for="tag in availableTags" :key="tag" :label="tag" :value="tag" />
-      </el-select>
+      />
       <el-select
-        v-else
+        v-else-if="practiceMode === 'knowledge'"
         v-model="interviewStore.knowledgeTopicId"
         class="source-select"
         :loading="knowledgeLoading"
@@ -214,17 +268,30 @@ watch(() => route.query, applyRouteSelection, { deep: true });
           :value="topic.id"
         />
       </el-select>
-      <span class="source-note">{{ knowledgeError || sourceLabel }}</span>
-      <el-tooltip content="生成一题新题目" placement="bottom">
-        <el-button
-          circle
-          :icon="RefreshCw"
-          :loading="interviewStore.questionLoading"
-          :disabled="interviewStore.scoreStatus === 'streaming'"
-          aria-label="换一题"
-          @click="generateQuestion"
-        />
-      </el-tooltip>
+      <el-select
+        v-else
+        v-model="interviewStore.tag"
+        class="source-select"
+        :loading="technicalLoading"
+        :disabled="interviewStore.questionLoading || interviewStore.scoreStatus === 'streaming'"
+        aria-label="选择技术知识点"
+        placeholder="选择技术知识点"
+        @change="handleTechnicalTopicChange"
+      >
+        <el-option v-for="topic in technicalTopics" :key="topic" :label="topic" :value="topic" />
+      </el-select>
+      <span class="source-note">{{ knowledgeError || technicalError || sourceLabel }}</span>
+      <el-button
+        :icon="ArrowLeft"
+        :disabled="
+          interviewStore.questionLoading ||
+          interviewStore.scoreStatus === 'streaming' ||
+          interviewStore.questionHistoryIndex <= 0
+        "
+        @click="interviewStore.goToPreviousQuestion"
+      >
+        上一题
+      </el-button>
       <el-button
         type="primary"
         :icon="Sparkles"
@@ -233,6 +300,14 @@ watch(() => route.query, applyRouteSelection, { deep: true });
         @click="generateQuestion"
       >
         生成题目
+      </el-button>
+      <el-button
+        :icon="ArrowRight"
+        :loading="interviewStore.questionLoading"
+        :disabled="!interviewStore.question || interviewStore.scoreStatus === 'streaming'"
+        @click="generateNextQuestion"
+      >
+        下一题
       </el-button>
     </div>
 
@@ -310,11 +385,38 @@ watch(() => route.query, applyRouteSelection, { deep: true });
   font-size: 13px;
 }
 
-.practice-mode :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+.practice-mode__button {
+  min-width: 112px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.practice-mode__button:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.practice-mode__button.is-active {
   background: var(--primary);
   border-color: var(--primary);
-  box-shadow: none;
   color: #ffffff;
+}
+
+.practice-mode__button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.practice-mode__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .source-note {
   min-width: 180px;

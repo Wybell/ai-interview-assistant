@@ -18,6 +18,14 @@ export function generateQuestion(payload: QuestionRequest): Promise<string> {
   });
 }
 
+export function getTechnicalTopics(direction: string, language: string): Promise<string[]> {
+  return request<string[]>({
+    url: '/question/topics',
+    method: 'get',
+    params: { direction, language },
+  });
+}
+
 export async function streamScore(
   payload: ScoreRequest,
   callbacks: ScoreStreamCallbacks,

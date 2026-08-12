@@ -43,6 +43,7 @@ export interface QuestionRequest {
   language: string;
   tag: string;
   knowledgeTopicId?: number;
+  mode: 'KNOWLEDGE_BASE' | 'CUSTOM_TOPIC' | 'TECHNICAL_TOPIC';
   refresh: boolean;
 }
 
@@ -54,11 +55,27 @@ export interface ScoreRequest {
 
 export type ScoreStatus = 'idle' | 'streaming' | 'complete' | 'error' | 'cancelled';
 
+export interface QuestionHistoryEntry {
+  question: string;
+  answer: string;
+  scoreStatus: ScoreStatus;
+  scoreResult: AiScoreResult | null;
+  scoreError: string;
+  streamText: string;
+}
+
 export interface ResumeDocument {
   id: number;
   fileName: string;
   contentType: string;
   createTime: string;
+}
+
+export interface ResumePreview {
+  id: number;
+  fileName: string;
+  contentType: string;
+  content: string;
 }
 
 export type InterviewRound = 'FIRST' | 'SECOND' | 'THIRD';
@@ -77,6 +94,7 @@ export interface MockInterviewTurn {
 export interface MockInterviewSession {
   id: number;
   targetPosition: string;
+  targetCompany: string | null;
   interviewRound: InterviewRound;
   status: 'ACTIVE' | 'COMPLETED';
   questionCount: number;

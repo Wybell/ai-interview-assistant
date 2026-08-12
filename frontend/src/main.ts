@@ -7,6 +7,8 @@ import {
   ElDropdownMenu,
   ElInput,
   ElOption,
+  ElRadioButton,
+  ElRadioGroup,
   ElSelect,
   ElTable,
   ElTableColumn,
@@ -35,6 +37,8 @@ app.use(ElDropdownItem);
 app.use(ElDropdownMenu);
 app.use(ElInput);
 app.use(ElOption);
+app.use(ElRadioButton);
+app.use(ElRadioGroup);
 app.use(ElSelect);
 app.use(ElTable);
 app.use(ElTableColumn);
