@@ -46,7 +46,6 @@ flowchart LR
 
 - [当前架构说明](docs/current-architecture.md)
 - [部署与验收手册](docs/deployment-and-acceptance.md)
-- [秋招项目表述与面试准备](docs/resume-project-description.md)
 
 ## 仓库结构
 
