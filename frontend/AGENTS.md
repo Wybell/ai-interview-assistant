@@ -228,3 +228,24 @@ OpenAPI 是前端接口的正式契约。实现或调整任何联调前，先查
 - Frontend validation passed: ESLint, 6 Vitest tests, and production build. Desktop practice and mobile mock-interview layouts were visually checked with mocked protected API responses.
 
 Current highest priority: complete a real authenticated local smoke test after the new backend external AI configuration is supplied; do not place an API key in frontend source or Git.
+
+## Model Policy Correction (2026-08-12)
+
+- The model selector must receive three configured options from the backend: official DeepSeek as the default, plus optional `5.6 Terra` and `5.6 Luna`.
+- The frontend must not hardcode provider names, model codes, or credentials. If the relay is unavailable, the backend may return only DeepSeek and the selector must continue to work.
+
+## Question Source Modes (2026-08-12)
+
+- `/practice` offers three mutually exclusive sources: `自定义知识点`, `知识库专题`, and `技术知识点`.
+- Custom mode uses a plain text input and never sends a knowledge-base topic ID.
+- Knowledge-base mode uses the selected published topic only; one available topic is selected automatically, while multiple topics remain a dropdown.
+- Technical mode loads the direction/language-specific topic list from `GET /api/question/topics`; it does not keep a duplicate topic dictionary in the frontend.
+- Changing direction, language, or source mode clears the current question and score state and refreshes both source lists. Loading, empty, and error states are shown before generation.
+- Frontend validation passed after this change: ESLint, Vitest, and the production build.
+
+## Practice Question Navigation (2026-08-12)
+
+- Practice generation is one-question-at-a-time. The initial primary action is `生成题目`; once a question exists it becomes `下一题`.
+- `上一题` restores an earlier generated question from the current practice context, including the answer and score feedback, without calling the AI again.
+- The question history is cleared when direction, language, source mode, or knowledge topic changes. Navigation is disabled while generation or streaming scoring is active.
+- Frontend lint, all Vitest tests, and the production build pass after this change.

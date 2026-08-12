@@ -1000,3 +1000,67 @@ Cloud release
 - Verification passed: `mvn test` with `FLYWAY_ENABLED=false` completed 92 tests successfully; frontend lint, 6 tests, and production build passed. Browser screenshots confirmed desktop practice and mobile mock-interview layouts with mocked API responses. A real end-to-end test still requires setting the custom provider's complete Responses URL and credentials outside Git, then enabling the V6/V7 Flyway release in a controlled environment.
 
 Current highest priority: configure and validate the custom Responses endpoint and key only in local/server external configuration, then run a real authenticated upload and mock-interview smoke test before cloud deployment.
+
+## Model Policy Correction (2026-08-12)
+
+- The V6 model policy was corrected by the new Flyway V8 migration; V6 itself remains immutable.
+- Official `deepseek / deepseek-v4-flash` is enabled again and is the system default because it is the stable provider.
+- `custom / gpt-5.6-terra` and `custom / gpt-5.6-luna` are optional models backed by the externally configured relay.
+- Sol and all other old catalog entries remain disabled and are not exposed by the model API.
+- If the relay key or endpoint is absent, only the custom models are unavailable; DeepSeek remains independently usable.
+- Before local feature testing, enable Flyway so V8 repairs an existing local database, then verify the three model rows and the DeepSeek default through the authenticated model APIs.
+
+Current highest priority: run the local V8 migration and authenticated smoke tests for the stable DeepSeek default, optional Terra/Luna selection, knowledge-base practice, and resume mock interviews. Do not deploy or push this change until those tests pass.
+
+## Question Source Modes (2026-08-12)
+
+- Practice question generation now has three mutually exclusive modes: knowledge-base topic, custom knowledge point, and technical knowledge point.
+- Knowledge-base mode accepts only a published topic ID matched to the selected direction and language; the AI prompt is grounded only in that topic document.
+- Custom mode accepts user-entered text and does not read knowledge-base content.
+- Technical mode loads an allowlisted topic list from `GET /api/question/topics` and the backend validates the selected topic against the direction and language before invoking AI.
+- Question cache keys include the source mode so knowledge-base, custom, and technical questions cannot reuse one another's cached result.
+- Question, scoring, resume interview, and report prompts require simplified Chinese output while preserving necessary code and technical identifiers in English.
+- Added focused service coverage for mode validation, cache isolation, technical topic lookup, and technical-mode generation. Frontend lint, tests, and production build pass; full backend regression still needs a successful completion in the local environment.
+
+Current highest priority: restart the local backend with the new source-mode code, then authenticate and manually verify all three practice modes with the official DeepSeek default before any cloud deployment.
+
+## Practice Question Navigation (2026-08-12)
+
+- The practice page now treats each AI generation as one question: the primary action is `下一题` after the first question, while the initial empty state uses `生成题目`.
+- Added `上一题` navigation backed by in-memory frontend history. It restores the question, answer, score result, score status, and score errors without another AI request.
+- Generating the next question saves the current question state first; switching direction, language, source mode, or selected topic clears the history to prevent unrelated questions from mixing.
+- Frontend lint, tests, and production build pass after this change.
+
+## Knowledge Base Question History (2026-08-12)
+
+- Knowledge-base practice now records generated questions in Redis under a user, direction, language, and topic-specific key; custom-topic and technical-topic practice do not use this history.
+- The history keeps the latest 50 normalized questions and expires after 30 days. Duplicate questions are not inserted again.
+- Knowledge-base prompts include the recorded questions and require one question at a time, grounded only in the selected topic document, with unseen questions preferred before repetition.
+- If the model still returns a previously recorded question, the backend retries once before accepting the repeated result. This limits latency while enforcing the no-repeat preference when the model can produce a new question.
+- The knowledge-base cache namespace remains versioned as `topic:v2`; cached knowledge questions are also backfilled into the history when read.
+- Added focused history, duplicate-prevention, retry, and knowledge-base integration tests. Backend full regression passed with 103 tests, 0 failures, and 0 errors. Frontend ESLint, 8 Vitest tests, and production build also passed.
+
+Current highest priority: rebuild or restart the local backend with Redis available, then manually verify knowledge-base generation across multiple `下一题` requests, including the `上一题` browser history flow. Do not deploy or push this change until the local smoke test passes.
+
+## Practice Navigation Coverage (2026-08-12)
+
+- Confirmed that the shared frontend question history applies to all three source modes, not only knowledge-base topics.
+- Added Store coverage for custom-topic and technical-topic modes: each can generate multiple questions, restore `上一题` without another AI request, and generate a new `下一题` from the current history position.
+
+## Resume Preview (2026-08-12)
+
+- Added authenticated `GET /api/resumes/{resumeId}/preview`. The Service resolves the resume through the existing user-scoped ownership query, so a user cannot retrieve another user's resume or the private storage path.
+- The endpoint returns only the existing server-side extracted text, file name, and content type. It does not expose the original file as a public URL.
+- The mock-interview resume list now provides a `查看简历` icon action. It fetches the selected resume only when opened and renders the content as plain text in a responsive drawer.
+- Added service coverage for owned and non-owned preview requests and frontend coverage for the protected preview route. Full backend regression passed with 105 tests, 0 failures, and 0 errors; frontend ESLint, 9 Vitest tests, and production build passed.
+
+Current highest priority: rebuild or restart the local backend, refresh the mock-interview page, and manually verify the resume drawer with a PDF, DOCX, or TXT resume before any deployment or push.
+
+## Mock Interview Company Simulation (2026-08-12)
+
+- Added Flyway V9 migration `V9__add_mock_interview_target_company.sql`. It adds the nullable `mock_interview_session.target_company` column; V1 through V8 remain unchanged.
+- Mock interview setup now accepts an optional target company. It is used only as company-style simulation context. The AI prompt must not claim access to a real company's internal interview process, question bank, or private information.
+- The stored stage values remain `FIRST`, `SECOND`, and `THIRD` for API and persistence compatibility. The UI displays them as `初轮技术面`, `深入技术面`, and `综合终面` with stage-specific preparation descriptions.
+- On the completed-session screen, `再来一场` returns to setup while retaining the prior role, company, and stage; `重新设置` returns to setup with role and company cleared and stage reset to `FIRST`.
+- Verification passed: backend Surefire reports contain 107 tests with 0 failures, 0 errors, and 0 skipped while Flyway was disabled; frontend lint, 10 Vitest tests, and production build passed.
+- Manual local verification remains required: rebuild the backend with Flyway enabled so V9 is applied, then verify company and blank-company interview flows plus both return-to-setup actions. Do not deploy or push until this smoke test passes.
