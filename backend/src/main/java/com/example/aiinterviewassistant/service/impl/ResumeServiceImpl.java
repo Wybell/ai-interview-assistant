@@ -3,6 +3,7 @@ package com.example.aiinterviewassistant.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.aiinterviewassistant.config.ResumeStorageProperties;
 import com.example.aiinterviewassistant.dto.ResumeResponse;
+import com.example.aiinterviewassistant.dto.ResumePreviewResponse;
 import com.example.aiinterviewassistant.entity.MockInterviewSession;
 import com.example.aiinterviewassistant.entity.ResumeDocument;
 import com.example.aiinterviewassistant.exception.BusinessException;
@@ -83,6 +84,17 @@ public class ResumeServiceImpl implements ResumeService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Override
+    public ResumePreviewResponse preview(Long userId, Long resumeId) {
+        ResumeDocument document = getOwnedResume(userId, resumeId);
+        return new ResumePreviewResponse(
+                document.getId(),
+                document.getOriginalFileName(),
+                document.getContentType(),
+                document.getExtractedContent()
+        );
     }
 
     @Override

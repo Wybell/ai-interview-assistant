@@ -130,6 +130,7 @@ public class AiController {
                 request.getLanguage(),
                 request.getTag(),
                 request.getKnowledgeTopicId(),
+                request.getMode(),
                 request.isRefresh()
         );
 

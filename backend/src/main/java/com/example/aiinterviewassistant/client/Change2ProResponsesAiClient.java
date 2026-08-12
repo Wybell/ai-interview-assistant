@@ -15,13 +15,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 
 @Component
 public class Change2ProResponsesAiClient implements AiClient {
 
     private static final String PROVIDER = "change2proapi";
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper;
@@ -71,6 +72,8 @@ public class Change2ProResponsesAiClient implements AiClient {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new BusinessException(502, "AI服务调用失败");
+        } catch (HttpTimeoutException e) {
+            throw new BusinessException(504, "AI服务响应超时，请稍后重试");
         } catch (IOException | IllegalArgumentException e) {
             throw new BusinessException(502, "AI服务调用失败");
         }
@@ -127,6 +130,8 @@ public class Change2ProResponsesAiClient implements AiClient {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new AiStreamCancelledException(exception);
+        } catch (HttpTimeoutException exception) {
+            throw new BusinessException(504, "AI服务响应超时，请稍后重试");
         } catch (IOException | IllegalArgumentException exception) {
             if (Thread.currentThread().isInterrupted()) {
                 throw new AiStreamCancelledException(exception);

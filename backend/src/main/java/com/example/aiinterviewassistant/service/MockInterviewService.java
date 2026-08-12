@@ -5,7 +5,12 @@ import com.example.aiinterviewassistant.dto.MockInterviewTurnResponse;
 
 public interface MockInterviewService {
 
-    MockInterviewSessionResponse createSession(Long userId, Long resumeId, String targetPosition, String interviewRound);
+    MockInterviewSessionResponse createSession(
+            Long userId,
+            Long resumeId,
+            String targetPosition,
+            String targetCompany,
+            String interviewRound);
 
     MockInterviewSessionResponse getSession(Long userId, Long sessionId);
 

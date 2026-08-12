@@ -46,16 +46,16 @@ class UserAiPreferenceServiceImplTest {
     @Test
     void shouldResolveEnabledUserPreferenceBeforePolicyDefault() {
         when(userAiPreferenceMapper.selectById(7L)).thenReturn(preference(7L, 2L));
-        when(aiModelMapper.selectById(2L)).thenReturn(change2ProModel(true));
-        when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(true);
+        when(aiModelMapper.selectById(2L)).thenReturn(customLunaModel(true));
+        when(aiClientRegistry.isModelAvailable("custom", "gpt-5.6-luna")).thenReturn(true);
 
         EffectiveAiModel actual = userAiPreferenceService.resolveEffectiveModel(7L);
 
         assertThat(actual).isEqualTo(new EffectiveAiModel(
                 2L,
-                "change2proapi",
+                "custom",
                 "gpt-5.6-luna",
-                "GPT-5.6 Luna",
+                "5.6 Luna",
                 false
         ));
         verifyNoInteractions(aiModelPolicyMapper);
@@ -82,7 +82,7 @@ class UserAiPreferenceServiceImplTest {
     @Test
     void shouldFallbackToPolicyDefaultWhenStoredPreferenceIsDisabled() {
         when(userAiPreferenceMapper.selectById(7L)).thenReturn(preference(7L, 2L));
-        when(aiModelMapper.selectById(2L)).thenReturn(change2ProModel(false));
+        when(aiModelMapper.selectById(2L)).thenReturn(customLunaModel(false));
         when(aiModelPolicyMapper.selectById(1)).thenReturn(policy(1L));
         when(aiModelMapper.selectById(1L)).thenReturn(deepSeekModel(true));
         when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
@@ -113,17 +113,17 @@ class UserAiPreferenceServiceImplTest {
 
     @Test
     void shouldAtomicallyUpsertEnabledModelPreference() {
-        when(aiModelMapper.selectById(2L)).thenReturn(change2ProModel(true));
-        when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(true);
+        when(aiModelMapper.selectById(2L)).thenReturn(customLunaModel(true));
+        when(aiClientRegistry.isModelAvailable("custom", "gpt-5.6-luna")).thenReturn(true);
         when(userAiPreferenceMapper.upsert(any())).thenReturn(1);
 
         AiModelPreferenceResponse actual = userAiPreferenceService.updatePreference(7L, 2L);
 
         assertThat(actual).isEqualTo(new AiModelPreferenceResponse(
                 2L,
-                "change2proapi",
+                "custom",
                 "gpt-5.6-luna",
-                "GPT-5.6 Luna",
+                "5.6 Luna",
                 false
         ));
 
@@ -136,7 +136,7 @@ class UserAiPreferenceServiceImplTest {
 
     @Test
     void shouldRejectUnavailableModelWhenUpdatingPreference() {
-        when(aiModelMapper.selectById(2L)).thenReturn(change2ProModel(false));
+        when(aiModelMapper.selectById(2L)).thenReturn(customLunaModel(false));
 
         assertThatThrownBy(() -> userAiPreferenceService.updatePreference(7L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -147,8 +147,8 @@ class UserAiPreferenceServiceImplTest {
 
     @Test
     void shouldRejectEnabledModelWhenProviderConfigurationIsUnavailable() {
-        when(aiModelMapper.selectById(2L)).thenReturn(change2ProModel(true));
-        when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(false);
+        when(aiModelMapper.selectById(2L)).thenReturn(customLunaModel(true));
+        when(aiClientRegistry.isModelAvailable("custom", "gpt-5.6-luna")).thenReturn(false);
 
         assertThatThrownBy(() -> userAiPreferenceService.updatePreference(7L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -161,8 +161,8 @@ class UserAiPreferenceServiceImplTest {
     @Test
     void shouldFallbackToDefaultWhenPreferredProviderConfigurationIsUnavailable() {
         when(userAiPreferenceMapper.selectById(7L)).thenReturn(preference(7L, 2L));
-        when(aiModelMapper.selectById(2L)).thenReturn(change2ProModel(true));
-        when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(false);
+        when(aiModelMapper.selectById(2L)).thenReturn(customLunaModel(true));
+        when(aiClientRegistry.isModelAvailable("custom", "gpt-5.6-luna")).thenReturn(false);
         when(aiModelPolicyMapper.selectById(1)).thenReturn(policy(1L));
         when(aiModelMapper.selectById(1L)).thenReturn(deepSeekModel(true));
         when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
@@ -238,12 +238,12 @@ class UserAiPreferenceServiceImplTest {
         );
     }
 
-    private AiModel change2ProModel(boolean enabled) {
+    private AiModel customLunaModel(boolean enabled) {
         return aiModel(
                 2L,
-                "change2proapi",
+                "custom",
                 "gpt-5.6-luna",
-                "GPT-5.6 Luna",
+                "5.6 Luna",
                 enabled
         );
     }

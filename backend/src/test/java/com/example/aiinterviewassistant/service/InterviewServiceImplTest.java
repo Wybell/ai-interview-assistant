@@ -1,11 +1,13 @@
 package com.example.aiinterviewassistant.service;
 
 import com.example.aiinterviewassistant.dto.AiScoreResult;
+import com.example.aiinterviewassistant.dto.QuestionMode;
 import com.example.aiinterviewassistant.client.AiTextDeltaConsumer;
 import com.example.aiinterviewassistant.entity.AnswerRecord;
 import com.example.aiinterviewassistant.exception.BusinessException;
 import com.example.aiinterviewassistant.mapper.AnswerRecordMapper;
 import com.example.aiinterviewassistant.model.EffectiveAiModel;
+import com.example.aiinterviewassistant.model.KnowledgeContext;
 import com.example.aiinterviewassistant.service.impl.InterviewServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ListOperations;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -54,6 +57,9 @@ class InterviewServiceImplTest {
     private ValueOperations<String, String> valueOperations;
 
     @Mock
+    private ListOperations<String, String> listOperations;
+
+    @Mock
     private AiService aiService;
 
     @Mock
@@ -65,6 +71,12 @@ class InterviewServiceImplTest {
     @Mock
     private KnowledgeRetrievalService knowledgeRetrievalService;
 
+    @Mock
+    private TechnicalTopicService technicalTopicService;
+
+    @Mock
+    private KnowledgeQuestionHistoryService knowledgeQuestionHistoryService;
+
     @InjectMocks
     private InterviewServiceImpl interviewService;
 
@@ -72,7 +84,7 @@ class InterviewServiceImplTest {
     void shouldReturnCachedQuestionWithoutCallingAi() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(userAiPreferenceService.resolveEffectiveModel(1L)).thenReturn(DEEPSEEK_MODEL);
-        when(valueOperations.get("question:1:model:1:backend:Java:custom:Java")).thenReturn("cached question");
+        when(valueOperations.get("question:1:model:1:custom_topic:backend:Java:Java")).thenReturn("cached question");
 
         String question = interviewService.askQuestion(1L, "Java", false);
 
@@ -91,7 +103,7 @@ class InterviewServiceImplTest {
         assertThat(question).isEqualTo("new question");
         verify(aiService).generateQuestion(DEEPSEEK_MODEL, "backend", "Java", "Java", null);
         verify(valueOperations).set(
-                "question:1:model:1:backend:Java:custom:Java",
+                "question:1:model:1:custom_topic:backend:Java:Java",
                 "new question",
                 Duration.ofHours(1)
         );
@@ -176,7 +188,7 @@ class InterviewServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(userAiPreferenceService.resolveEffectiveModel(1L))
                 .thenReturn(DEEPSEEK_MODEL, CHANGE2PRO_MODEL);
-        when(valueOperations.get("question:1:model:1:backend:Java:custom:Java")).thenReturn("DeepSeek question");
+        when(valueOperations.get("question:1:model:1:custom_topic:backend:Java:Java")).thenReturn("DeepSeek question");
         when(aiService.generateQuestion(CHANGE2PRO_MODEL, "backend", "Java", "Java", null))
                 .thenReturn("GPT question");
 
@@ -186,7 +198,7 @@ class InterviewServiceImplTest {
         assertThat(initialQuestion).isEqualTo("DeepSeek question");
         assertThat(questionAfterSwitch).isEqualTo("GPT question");
         verify(valueOperations).set(
-                "question:1:model:2:backend:Java:custom:Java",
+                "question:1:model:2:custom_topic:backend:Java:Java",
                 "GPT question",
                 Duration.ofHours(1)
         );
@@ -206,12 +218,12 @@ class InterviewServiceImplTest {
         assertThat(firstUserQuestion).isEqualTo("DeepSeek question");
         assertThat(secondUserQuestion).isEqualTo("GPT question");
         verify(valueOperations).set(
-                "question:1:model:1:backend:Java:custom:Java",
+                "question:1:model:1:custom_topic:backend:Java:Java",
                 "DeepSeek question",
                 Duration.ofHours(1)
         );
         verify(valueOperations).set(
-                "question:2:model:2:backend:Java:custom:Java",
+                "question:2:model:2:custom_topic:backend:Java:Java",
                 "GPT question",
                 Duration.ofHours(1)
         );
@@ -224,5 +236,116 @@ class InterviewServiceImplTest {
                 .hasMessage("请先登录");
 
         verifyNoInteractions(redisTemplate, aiService, answerRecordMapper, userAiPreferenceService);
+    }
+
+    @Test
+    void shouldGenerateTechnicalTopicQuestionWithTechnicalModeCacheKey() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(userAiPreferenceService.resolveEffectiveModel(1L)).thenReturn(DEEPSEEK_MODEL);
+        when(technicalTopicService.isSupported("backend", "Java", "JVM")).thenReturn(true);
+        when(aiService.generateQuestion(DEEPSEEK_MODEL, "backend", "Java", "JVM", null))
+                .thenReturn("JVM question");
+
+        String question = interviewService.askQuestion(
+                1L, "backend", "Java", "JVM", null, QuestionMode.TECHNICAL_TOPIC, true);
+
+        assertThat(question).isEqualTo("JVM question");
+        verify(valueOperations).set(
+                "question:1:model:1:technical_topic:backend:Java:JVM",
+                "JVM question",
+                Duration.ofHours(1)
+        );
+    }
+
+    @Test
+    void shouldRejectKnowledgeModeWithoutTopic() {
+        assertThatThrownBy(() -> interviewService.askQuestion(
+                1L, "backend", "Java", "", null, QuestionMode.KNOWLEDGE_BASE, true))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("请选择有效的知识库专题");
+
+        verifyNoInteractions(redisTemplate, aiService, userAiPreferenceService, knowledgeRetrievalService);
+    }
+
+    @Test
+    void shouldRejectKnowledgeTopicInCustomMode() {
+        assertThatThrownBy(() -> interviewService.askQuestion(
+                1L, "backend", "Java", "JVM", 7L, QuestionMode.CUSTOM_TOPIC, true))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("当前出题模式不能使用知识库专题");
+
+        verifyNoInteractions(redisTemplate, aiService, userAiPreferenceService, knowledgeRetrievalService);
+    }
+
+    @Test
+    void shouldUseAndRecordHistoryOnlyForKnowledgeBaseQuestions() {
+        KnowledgeContext knowledgeContext = new KnowledgeContext(
+                7L,
+                "Java 基础专题",
+                "HashMap 和 JVM 的文档内容"
+        );
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(userAiPreferenceService.resolveEffectiveModel(1L)).thenReturn(DEEPSEEK_MODEL);
+        when(knowledgeRetrievalService.getPublishedContext(7L, "backend", "Java"))
+                .thenReturn(knowledgeContext);
+        when(knowledgeQuestionHistoryService.getPreviousQuestions(1L, "backend", "Java", 7L))
+                .thenReturn(List.of("已出过的问题？"));
+        when(aiService.generateQuestion(
+                DEEPSEEK_MODEL,
+                "backend",
+                "Java",
+                "Java 基础专题",
+                knowledgeContext,
+                List.of("已出过的问题？")
+        )).thenReturn("新的专题问题？");
+
+        String question = interviewService.askQuestion(
+                1L, "backend", "Java", "", 7L, QuestionMode.KNOWLEDGE_BASE, true);
+
+        assertThat(question).isEqualTo("新的专题问题？");
+        verify(knowledgeQuestionHistoryService).getPreviousQuestions(1L, "backend", "Java", 7L);
+        verify(knowledgeQuestionHistoryService).recordQuestion(
+                1L, "backend", "Java", 7L, "新的专题问题？");
+        verify(valueOperations).set(
+                "question:1:model:1:knowledge_base:backend:Java:topic:v2:7",
+                "新的专题问题？",
+                Duration.ofHours(1)
+        );
+    }
+
+    @Test
+    void shouldRetryWhenKnowledgeBaseModelRepeatsAQuestion() {
+        KnowledgeContext knowledgeContext = new KnowledgeContext(
+                7L,
+                "Java 基础专题",
+                "HashMap 和 JVM 的文档内容"
+        );
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(userAiPreferenceService.resolveEffectiveModel(1L)).thenReturn(DEEPSEEK_MODEL);
+        when(knowledgeRetrievalService.getPublishedContext(7L, "backend", "Java"))
+                .thenReturn(knowledgeContext);
+        when(knowledgeQuestionHistoryService.getPreviousQuestions(1L, "backend", "Java", 7L))
+                .thenReturn(List.of("已出过的问题？"));
+        when(aiService.generateQuestion(
+                DEEPSEEK_MODEL,
+                "backend",
+                "Java",
+                "Java 基础专题",
+                knowledgeContext,
+                List.of("已出过的问题？")
+        )).thenReturn("已出过的问题？", "新的专题问题？");
+
+        String question = interviewService.askQuestion(
+                1L, "backend", "Java", "", 7L, QuestionMode.KNOWLEDGE_BASE, true);
+
+        assertThat(question).isEqualTo("新的专题问题？");
+        verify(aiService, org.mockito.Mockito.times(2)).generateQuestion(
+                DEEPSEEK_MODEL,
+                "backend",
+                "Java",
+                "Java 基础专题",
+                knowledgeContext,
+                List.of("已出过的问题？")
+        );
     }
 }

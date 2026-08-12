@@ -5,11 +5,13 @@ import com.example.aiinterviewassistant.client.AiTextDeltaConsumer;
 import com.example.aiinterviewassistant.dto.AiScoreResult;
 import com.example.aiinterviewassistant.exception.BusinessException;
 import com.example.aiinterviewassistant.model.EffectiveAiModel;
+import com.example.aiinterviewassistant.model.KnowledgeContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.ArrayList;
@@ -63,6 +65,91 @@ class AiServiceTest {
                 anyString(),
                 eq("知识点：JVM")
         );
+    }
+
+    @Test
+    void shouldKeepOnlyTheFirstQuestionFromKnowledgeBaseResponse() {
+        KnowledgeContext knowledgeContext = new KnowledgeContext(
+                7L,
+                "Java 后端专题",
+                "HashMap、JVM 和并发编程相关内容"
+        );
+        when(aiClientRegistry.generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                anyString()
+        )).thenReturn("1. 请说明 HashMap 的扩容机制？\n2. 请说明 JVM 的内存区域？\n答案：略");
+
+        String question = aiService.generateQuestion(
+                SELECTED_MODEL,
+                "backend",
+                "Java",
+                "Java 后端专题",
+                knowledgeContext
+        );
+
+        assertThat(question).isEqualTo("请说明 HashMap 的扩容机制？");
+    }
+
+    @Test
+    void shouldUseCompanyAsSimulationContextForMockInterviewQuestion() {
+        when(aiClientRegistry.generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                anyString()
+        )).thenReturn("请介绍你在项目中负责的模块？");
+
+        aiService.generateMockInterviewQuestion(
+                SELECTED_MODEL,
+                "Java 后端项目经历",
+                "Java 后端实习生",
+                "腾讯",
+                "SECOND",
+                ""
+        );
+
+        ArgumentCaptor<String> contentCaptor = ArgumentCaptor.forClass(String.class);
+        verify(aiClientRegistry).generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                contentCaptor.capture()
+        );
+        assertThat(contentCaptor.getValue()).contains(
+                "腾讯",
+                "公司风格模拟语境",
+                "不得声称掌握该公司的真实题库"
+        );
+    }
+
+    @Test
+    void shouldUseGeneralFlowWhenMockInterviewCompanyIsAbsent() {
+        when(aiClientRegistry.generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                anyString()
+        )).thenReturn("请介绍你的项目经历？");
+
+        aiService.generateMockInterviewQuestion(
+                SELECTED_MODEL,
+                "Java 后端项目经历",
+                "Java 后端实习生",
+                null,
+                "FIRST",
+                ""
+        );
+
+        ArgumentCaptor<String> contentCaptor = ArgumentCaptor.forClass(String.class);
+        verify(aiClientRegistry).generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                contentCaptor.capture()
+        );
+        assertThat(contentCaptor.getValue()).contains("按通用岗位面试流程进行");
     }
 
     @Test

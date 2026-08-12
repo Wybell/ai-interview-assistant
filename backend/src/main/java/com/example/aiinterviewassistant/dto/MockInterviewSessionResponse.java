@@ -6,6 +6,7 @@ import java.util.List;
 public record MockInterviewSessionResponse(
         Long id,
         String targetPosition,
+        String targetCompany,
         String interviewRound,
         String status,
         int questionCount,

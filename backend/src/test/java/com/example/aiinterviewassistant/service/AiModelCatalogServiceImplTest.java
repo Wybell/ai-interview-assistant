@@ -51,18 +51,24 @@ class AiModelCatalogServiceImplTest {
                 "deepseek-v4-flash",
                 "DeepSeek V4 Flash"
         );
-        AiModel change2ProModel = aiModel(
+        AiModel terraModel = aiModel(
                 2L,
-                "change2proapi",
+                "custom",
+                "gpt-5.6-terra",
+                "5.6 Terra"
+        );
+        AiModel lunaModel = aiModel(
+                3L,
+                "custom",
                 "gpt-5.6-luna",
-                "GPT-5.6 Luna"
+                "5.6 Luna"
         );
         when(userAiPreferenceService.resolveEffectiveModel(7L)).thenReturn(
                 new EffectiveAiModel(
-                        2L,
-                        "change2proapi",
+                        3L,
+                        "custom",
                         "gpt-5.6-luna",
-                        "GPT-5.6 Luna",
+                        "5.6 Luna",
                         false
                 )
         );
@@ -75,9 +81,10 @@ class AiModelCatalogServiceImplTest {
                         true
                 )
         );
-        when(aiModelMapper.selectList(any())).thenReturn(List.of(deepSeekModel, change2ProModel));
+        when(aiModelMapper.selectList(any())).thenReturn(List.of(deepSeekModel, terraModel, lunaModel));
         when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
-        when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(true);
+        when(aiClientRegistry.isModelAvailable("custom", "gpt-5.6-terra")).thenReturn(true);
+        when(aiClientRegistry.isModelAvailable("custom", "gpt-5.6-luna")).thenReturn(true);
 
         List<AiModelResponse> actual = aiModelCatalogService.getAvailableModels(7L);
 
@@ -92,9 +99,17 @@ class AiModelCatalogServiceImplTest {
                 ),
                 new AiModelResponse(
                         2L,
-                        "change2proapi",
+                        "custom",
+                        "gpt-5.6-terra",
+                        "5.6 Terra",
+                        false,
+                        false
+                ),
+                new AiModelResponse(
+                        3L,
+                        "custom",
                         "gpt-5.6-luna",
-                        "GPT-5.6 Luna",
+                        "5.6 Luna",
                         false,
                         true
                 )
@@ -114,11 +129,11 @@ class AiModelCatalogServiceImplTest {
                 "deepseek-v4-flash",
                 "DeepSeek V4 Flash"
         );
-        AiModel change2ProModel = aiModel(
+        AiModel lunaModel = aiModel(
                 2L,
-                "change2proapi",
+                "custom",
                 "gpt-5.6-luna",
-                "GPT-5.6 Luna"
+                "5.6 Luna"
         );
         EffectiveAiModel deepSeekEffectiveModel = new EffectiveAiModel(
                 1L,
@@ -129,9 +144,9 @@ class AiModelCatalogServiceImplTest {
         );
         when(userAiPreferenceService.resolveEffectiveModel(7L)).thenReturn(deepSeekEffectiveModel);
         when(userAiPreferenceService.resolveDefaultModel()).thenReturn(deepSeekEffectiveModel);
-        when(aiModelMapper.selectList(any())).thenReturn(List.of(deepSeekModel, change2ProModel));
+        when(aiModelMapper.selectList(any())).thenReturn(List.of(deepSeekModel, lunaModel));
         when(aiClientRegistry.isModelAvailable("deepseek", "deepseek-v4-flash")).thenReturn(true);
-        when(aiClientRegistry.isModelAvailable("change2proapi", "gpt-5.6-luna")).thenReturn(false);
+        when(aiClientRegistry.isModelAvailable("custom", "gpt-5.6-luna")).thenReturn(false);
 
         List<AiModelResponse> actual = aiModelCatalogService.getAvailableModels(7L);
 

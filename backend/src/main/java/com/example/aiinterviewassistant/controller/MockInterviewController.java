@@ -34,6 +34,7 @@ public class MockInterviewController {
                 userContext.getCurrentUserId(),
                 request.getResumeId(),
                 request.getTargetPosition(),
+                request.getTargetCompany(),
                 request.getInterviewRound()));
     }
 

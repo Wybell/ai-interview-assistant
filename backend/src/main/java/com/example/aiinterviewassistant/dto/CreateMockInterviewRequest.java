@@ -17,6 +17,9 @@ public class CreateMockInterviewRequest {
     @Size(max = 100, message = "Target position is too long")
     private String targetPosition;
 
+    @Size(max = 100, message = "Target company is too long")
+    private String targetCompany;
+
     @NotBlank(message = "Interview round must not be blank")
     @Pattern(regexp = "FIRST|SECOND|THIRD", message = "Interview round is invalid")
     private String interviewRound;

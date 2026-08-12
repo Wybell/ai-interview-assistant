@@ -51,6 +51,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
             Long userId,
             Long resumeId,
             String targetPosition,
+            String targetCompany,
             String interviewRound) {
         requireUser(userId);
         ResumeDocument resume = resumeService.getOwnedResume(userId, resumeId);
@@ -60,6 +61,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
         session.setUserId(userId);
         session.setResumeId(resume.getId());
         session.setTargetPosition(targetPosition.trim());
+        session.setTargetCompany(normalizeOptionalText(targetCompany));
         session.setInterviewRound(interviewRound);
         session.setStatus(ACTIVE_STATUS);
         session.setQuestionCount(0);
@@ -120,6 +122,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
         session.setSummary(aiService.generateMockInterviewSummary(
                 aiModel,
                 session.getTargetPosition(),
+                session.getTargetCompany(),
                 session.getInterviewRound(),
                 toTranscript(turns)));
         session.setStatus(COMPLETED_STATUS);
@@ -140,6 +143,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
                 aiModel,
                 resume.getExtractedContent(),
                 session.getTargetPosition(),
+                session.getTargetCompany(),
                 session.getInterviewRound(),
                 toTranscript(previousTurns)));
         turn.setFocusTag(session.getTargetPosition());
@@ -203,7 +207,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
             MockInterviewSession session,
             List<MockInterviewTurn> turns) {
         return new MockInterviewSessionResponse(
-                session.getId(), session.getTargetPosition(), session.getInterviewRound(), session.getStatus(),
+                session.getId(), session.getTargetPosition(), session.getTargetCompany(), session.getInterviewRound(), session.getStatus(),
                 session.getQuestionCount(), session.getAiModelId(), session.getSummary(), session.getCreateTime(),
                 session.getFinishedTime(), turns.stream().map(this::toTurnResponse).toList());
     }
@@ -218,5 +222,12 @@ public class MockInterviewServiceImpl implements MockInterviewService {
         if (userId == null) {
             throw new BusinessException(401, "Authentication is required");
         }
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }

@@ -15,6 +15,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 
 /** OpenAI Responses-compatible client for the externally configured custom provider. */
@@ -22,7 +23,7 @@ import java.time.Duration;
 public class CustomResponsesAiClient implements AiClient {
 
     private static final String PROVIDER = "custom";
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(45);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper;
@@ -67,6 +68,8 @@ public class CustomResponsesAiClient implements AiClient {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new BusinessException(502, "AI service request failed");
+        } catch (HttpTimeoutException exception) {
+            throw new BusinessException(504, "AI服务响应超时，请稍后重试");
         } catch (IOException | IllegalArgumentException exception) {
             throw new BusinessException(502, "AI service request failed");
         }
@@ -112,6 +115,8 @@ public class CustomResponsesAiClient implements AiClient {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new AiStreamCancelledException(exception);
+        } catch (HttpTimeoutException exception) {
+            throw new BusinessException(504, "AI服务响应超时，请稍后重试");
         } catch (IOException | IllegalArgumentException exception) {
             if (Thread.currentThread().isInterrupted()) {
                 throw new AiStreamCancelledException(exception);

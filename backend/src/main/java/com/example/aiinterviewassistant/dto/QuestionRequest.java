@@ -22,10 +22,12 @@ public class QuestionRequest {
     @Size(max = 30, message = "面试语言长度不能超过30个字符")
     private String language;
 
-    @Schema(description = "面试知识点，不能为空且最多 50 个字符。", example = "HashMap")
-    @NotBlank(message = "知识点不能为空")
+    @Schema(description = "自定义知识点或技术知识点板块；知识库模式下可填专题标题。", example = "HashMap")
     @Size(max = 50, message = "知识点长度不能超过50个字符")
     private String tag;
+
+    @Schema(description = "出题模式：KNOWLEDGE_BASE、CUSTOM_TOPIC 或 TECHNICAL_TOPIC。", example = "CUSTOM_TOPIC")
+    private QuestionMode mode = QuestionMode.CUSTOM_TOPIC;
 
     @Schema(description = "Optional published knowledge topic ID used to ground the generated question.", example = "1")
     @Positive(message = "Knowledge topic ID must be positive")

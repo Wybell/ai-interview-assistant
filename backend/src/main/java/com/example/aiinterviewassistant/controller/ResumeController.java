@@ -2,6 +2,7 @@ package com.example.aiinterviewassistant.controller;
 
 import com.example.aiinterviewassistant.common.ApiResponse;
 import com.example.aiinterviewassistant.dto.ResumeResponse;
+import com.example.aiinterviewassistant.dto.ResumePreviewResponse;
 import com.example.aiinterviewassistant.service.ResumeService;
 import com.example.aiinterviewassistant.utils.UserContext;
 import org.springframework.http.MediaType;
@@ -36,6 +37,11 @@ public class ResumeController {
     @GetMapping
     public ApiResponse<List<ResumeResponse>> getResumes() {
         return ApiResponse.success(resumeService.getResumes(userContext.getCurrentUserId()));
+    }
+
+    @GetMapping("/{resumeId}/preview")
+    public ApiResponse<ResumePreviewResponse> preview(@PathVariable Long resumeId) {
+        return ApiResponse.success(resumeService.preview(userContext.getCurrentUserId(), resumeId));
     }
 
     @DeleteMapping("/{resumeId}")

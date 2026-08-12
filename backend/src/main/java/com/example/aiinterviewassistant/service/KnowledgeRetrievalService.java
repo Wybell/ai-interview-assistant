@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class KnowledgeRetrievalService {
 
-    private static final int MAX_CONTEXT_LENGTH = 12_000;
+    private static final int MAX_CONTEXT_LENGTH = 8_000;
 
     private final KnowledgeTopicMapper knowledgeTopicMapper;
 

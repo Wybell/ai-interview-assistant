@@ -16,6 +16,7 @@ public class MockInterviewSession {
     private Long userId;
     private Long resumeId;
     private String targetPosition;
+    private String targetCompany;
     private String interviewRound;
     private String status;
     private Integer questionCount;

@@ -158,13 +158,15 @@ class SecurityApiTest {
         when(jwtUtil.getUserIdFromToken("valid-token")).thenReturn(1L);
         when(jwtUtil.getUsernameFromToken("valid-token")).thenReturn("alice");
         when(userContext.getCurrentUserId()).thenReturn(1L);
-        when(interviewService.askQuestion(1L, "backend", "Java", "JVM", null, false))
+        when(interviewService.askQuestion(
+                1L, "backend", "Java", "JVM", null,
+                com.example.aiinterviewassistant.dto.QuestionMode.CUSTOM_TOPIC, false))
                 .thenReturn("Explain JVM memory areas.");
 
         mockMvc.perform(post("/api/question/ask")
                         .header("Authorization", "Bearer valid-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"direction\":\"backend\",\"language\":\"Java\",\"tag\":\"JVM\",\"refresh\":false}"))
+                        .content("{\"direction\":\"backend\",\"language\":\"Java\",\"tag\":\"JVM\",\"mode\":\"CUSTOM_TOPIC\",\"refresh\":false}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").value("Explain JVM memory areas."));
