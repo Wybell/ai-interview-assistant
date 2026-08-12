@@ -52,3 +52,6 @@ logs/
 
 # Private locally stored resume files
 /backend/uploads/
+
+# Personal interview preparation; keep local and never publish to the project repository.
+/docs/resume-project-description.md

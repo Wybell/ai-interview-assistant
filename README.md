@@ -1,107 +1,84 @@
-# AI Interview Assistant
+# AI 面试助手
 
-AI Interview Assistant is a single Git repository for an AI interview-training platform. The existing Spring Boot backend supports authenticated users, AI-generated questions, answer scoring, mistake review, study progress, per-user AI model selection, and true upstream SSE scoring output. The Vue frontend will be developed as an independent application in this repository.
+一个面向技术求职者的 AI 面试训练平台。用户可以围绕技术知识点、知识库专题或自定义主题完成练习，获得 AI 评分与复盘；也可以上传简历，按岗位、公司风格和面试轮次进行模拟面试。
 
-## Current Status
+项目采用单仓库前后端分离结构，已完成 Docker 化并部署到腾讯云单机环境。项目中的密钥、数据库密码、JWT 密钥和简历原文件均不进入 Git。
 
-- Core backend flows are available locally.
-- The default model is DeepSeek `deepseek-v4-flash`.
-- Change2Pro GPT-5.6 Luna is an optional model that users can select without restarting the backend.
-- Question generation, normal scoring, SSE scoring, and answer-record persistence have been verified locally.
-- Swagger/OpenAPI now documents authentication, model selection, interview training, legacy compatibility routes, JWT Bearer security, response schemas, and SSE behavior.
-- Local Swagger UI is available at `http://localhost:8082/swagger-ui.html`.
-- The independent Vue 3 frontend is implemented in `frontend/`; browser visual checks passed with mocked API responses, and the user has confirmed live local frontend-backend integration through Vite on `5173` and Spring Boot on `8082`.
+## 核心能力
 
-## Technology Stack
+- 用户注册登录、Spring Security + JWT 鉴权与统一错误响应。
+- 每个用户独立保存 AI 模型偏好：官方 DeepSeek 为默认模型，5.6 Terra 与 5.6 Luna 为可选中转模型。
+- 三种出题模式：知识库专题出题、自定义知识点出题、按前后端方向和语言筛选的技术知识点出题。
+- 知识库题目按用户、方向、语言和专题在 Redis 中保留近期历史，优先生成未出现过的题目。
+- 单题生成、上一题/下一题浏览、SSE 流式评分、错题本和学习进度。
+- PDF、DOCX、TXT 简历上传与私有预览；简历仅保存在服务端挂载目录，不公开原始文件 URL。
+- 一次只出一题的模拟面试：支持初轮技术面、深入技术面、综合终面，支持目标公司风格模拟、逐题评分与最终报告。
+- Flyway 管理 MySQL 表结构迁移；Docker Compose 管理后端、前端、MySQL 和 Redis；宿主机 Nginx 提供访问入口。
 
-- Java 17
-- Spring Boot 2.7.18
-- Maven
-- MySQL 8
-- Flyway
-- MyBatis-Plus
-- Redis
-- Spring Security and JWT
-- DeepSeek, Change2Pro, and DashScope AI clients
-- Vue 3, Vite, TypeScript, Pinia, Axios, Element Plus, ECharts
+## 技术栈
 
-## Project Layout
+| 范围 | 技术 |
+| --- | --- |
+| 后端 | Java 17, Spring Boot 2.7, Maven, MyBatis-Plus |
+| 数据与缓存 | MySQL 8, Redis, Flyway |
+| 安全 | Spring Security, JWT, BCrypt |
+| AI 接入 | DeepSeek Chat Completions, OpenAI Responses-compatible custom provider |
+| 前端 | Vue 3, Vite, TypeScript, Pinia, Axios, Element Plus, Lucide |
+| 测试与交付 | JUnit 5, Mockito, MockMvc, Vitest, Docker, Docker Compose, Nginx |
 
-```text
-backend/                         Spring Boot backend; open this folder in IntelliJ IDEA
-  .mvn/                          Maven Wrapper files
-  database/local/                Local-only destructive reset scripts
-  pom.xml
-  mvnw.cmd
-  src/main/java/                 Application source
-  src/main/resources/db/migration/ Flyway migrations
-  src/main/resources/static/     Legacy static pages, not the production frontend
-  src/test/                      Unit, MVC, security, client, service, and SSE tests
+## 架构
 
-frontend/                        Vue 3 application; open this folder in VS Code
-  src/                           API modules, stores, components, views, utilities, and styles
-  AGENTS.md                      Frontend-specific collaboration and delivery rules
-  README.md                      Frontend local development guide
-docs/                            Cross-project architecture and integration notes
-AGENTS.md                        Collaboration rules and current project status
-README.md                        Repository entry point
+```mermaid
+flowchart LR
+    U[浏览器 Vue 3] --> N[Nginx]
+    N --> F[前端 Nginx 容器]
+    N --> B[Spring Boot 后端容器]
+    B --> M[(MySQL)]
+    B --> R[(Redis)]
+    B --> D[DeepSeek]
+    B --> C[Custom Responses Provider]
+    B --> S[私有简历存储目录]
 ```
 
-## Prerequisites
+后端保持 `Controller -> Service -> Mapper / AI Client` 的职责边界。AI 客户端由运行时模型目录路由，业务接口不接受前端传入的 API Key、模型代码或 Provider 名称。
 
-- JDK 17
-- MySQL 8 running locally or in a reachable development environment
-- Redis running locally or in a reachable development environment
-- A valid DeepSeek API key for the default model
-- Maven Wrapper is included; a separate Maven installation is optional
-- Node.js 22 and pnpm for the independent frontend
+详细设计见：
 
-## Configuration
+- [当前架构说明](docs/current-architecture.md)
+- [部署与验收手册](docs/deployment-and-acceptance.md)
+- [秋招项目表述与面试准备](docs/resume-project-description.md)
 
-All secrets are external configuration. Do not commit passwords, JWT secrets, API keys, `.env` files, or local property files.
+## 仓库结构
 
-| Variable | Purpose | Required locally |
-| --- | --- | --- |
-| `MYSQL_URL` | JDBC connection URL | Defaults to the local `interview_db` URL |
-| `MYSQL_USERNAME` | MySQL username | Defaults to `root` locally |
-| `MYSQL_PASSWORD` | MySQL password | Yes |
-| `REDIS_HOST` | Redis host | Defaults to `localhost` |
-| `REDIS_PORT` | Redis port | Defaults to `6379` |
-| `REDIS_PASSWORD` | Redis password | Optional |
-| `JWT_SECRET` | HS256 signing secret | Yes |
-| `DEEPSEEK_API_KEY` | DeepSeek credential | Required to use the default model |
-| `DEEPSEEK_ENDPOINT` | DeepSeek Chat Completions URL | Defaults to the official endpoint |
-| `CHANGE2PRO_API_KEY` | Change2Pro credential | Required only for the optional model |
-| `CHANGE2PRO_ENDPOINT` | Full Change2Pro Responses API URL | Required only for the optional model |
-| `CHANGE2PRO_REASONING_EFFORT` | Change2Pro reasoning level | Defaults to `low` |
-| `CHANGE2PRO_DISABLE_RESPONSE_STORAGE` | Disable relay response storage | Defaults to `true` |
-| `FLYWAY_ENABLED` | Enable Flyway migrations at startup | Defaults to `false` |
-| `OPENAPI_ENABLED` | Enable the OpenAPI JSON document | Defaults to `true` locally and `false` in the production profile |
-| `SWAGGER_UI_ENABLED` | Enable Swagger UI | Defaults to `true` locally and `false` in the production profile |
+```text
+backend/     Spring Boot 后端、Flyway 迁移、Docker Compose、后端测试
+frontend/    Vue 3 前端、Vitest 测试、Nginx 静态站点配置
+docs/        架构、部署、前后端集成与项目说明
+AGENTS.md    项目协作规则和当前实际进度
+```
 
-The application no longer uses `AI_PROVIDER`, `DEEPSEEK_MODEL`, or `CHANGE2PRO_MODEL`. Provider connection settings come from environment variables; selectable provider/model pairs come from the `ai_model` database allowlist and the user's saved preference.
+IDEA 打开 `backend/`，VS Code 打开 `frontend/`，Git 命令始终在仓库根目录执行。
 
-## Local Startup
+## 本地运行
 
-Set the required variables in the IntelliJ IDEA run configuration or PowerShell. Use placeholders only; never paste real secrets into source files.
+### 后端
+
+准备 MySQL、Redis 与外部配置后，在 `backend/` 启动：
 
 ```powershell
-$env:MYSQL_PASSWORD = "<local-mysql-password>"
-$env:JWT_SECRET = "<jwt-secret-with-at-least-32-bytes>"
-$env:DEEPSEEK_API_KEY = "<deepseek-api-key>"
-$env:FLYWAY_ENABLED = "true"
-
 Set-Location backend
 .\mvnw.cmd spring-boot:run
 ```
 
-The local server listens on `http://localhost:8082` by default.
+本地 Docker 联调：
 
-Use `FLYWAY_ENABLED=true` only when the target database is intentionally prepared for the versioned migrations. Do not modify already-applied migration files or manually alter production schema in Navicat.
+```bash
+docker compose -f backend/docker-compose.yml up -d --build
+```
 
-## Frontend Startup
+后端默认监听 `http://localhost:8082`。首次对目标库启用 Flyway 前，必须确认该库允许执行项目内版本化迁移；已执行的迁移文件不得修改。
 
-With the backend running on port `8082`, start the Vue application in another terminal:
+### 前端
 
 ```powershell
 Set-Location frontend
@@ -109,88 +86,45 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://127.0.0.1:5173`. Vite proxies `/api` to `http://localhost:8082` by default. Set `VITE_BACKEND_TARGET` before starting Vite only when the backend uses another address.
+访问 `http://127.0.0.1:5173`。Vite 默认将 `/api` 代理到 `http://localhost:8082`。
 
-## Tests
+## 外部配置
 
-Run the full test suite without applying Flyway migrations:
+所有敏感值只能放在本地或服务器外部配置中。生产环境使用：
+
+```text
+/opt/ai-interview/config/.env
+/opt/ai-interview/config/application-prod.properties
+```
+
+配置应包含数据库、Redis、JWT、DeepSeek 与 custom Provider 的必要参数。示例文件只保留占位符，绝不提交真实 Key。模型目录由数据库的 `ai_model` 和 `ai_model_policy` 管理，官方 DeepSeek 是当前默认模型。
+
+## 质量检查
 
 ```powershell
 Set-Location backend
-.\mvnw.cmd -Dspring.flyway.enabled=false test
-```
+.\mvnw.cmd '-Dspring.flyway.enabled=false' test
 
-Run frontend quality checks:
-
-```powershell
-Set-Location frontend
-pnpm format:check
+Set-Location ../frontend
 pnpm lint
 pnpm test:run
 pnpm build
 ```
 
-## OpenAPI and Swagger
+最近一次完整验证：后端 107 个测试通过；前端 ESLint、10 个 Vitest 测试与生产构建通过。
 
-With the local application running, open:
+## 生产发布原则
 
-- Swagger UI: `http://localhost:8082/swagger-ui.html`
-- OpenAPI JSON: `http://localhost:8082/v3/api-docs`
+1. 先备份服务器外部配置和 `interview_db`。
+2. 用 `git pull --ff-only origin main` 拉取已验证版本。
+3. 使用 `backend/docker-compose.prod.yml` 重建后端和前端。
+4. 由 Flyway 自动应用新迁移，禁止手工执行已纳入迁移的 SQL。
+5. 检查容器、Flyway 日志、Nginx 配置和关键用户流程。
 
-Swagger UI and the OpenAPI document are public documentation endpoints. Business APIs remain protected. Use the login endpoint first, then click `Authorize` in Swagger UI and enter the JWT value; Swagger adds the `Bearer` prefix for the protected JSON APIs.
+完整命令与验收清单见 [部署与验收手册](docs/deployment-and-acceptance.md)。
 
-The production profile disables both documentation endpoints by default. Enable them only in an intentionally protected environment by setting both `OPENAPI_ENABLED=true` and `SWAGGER_UI_ENABLED=true`.
+## 已知边界
 
-The JSON interview APIs are the formal frontend contract. The old `GET /api/question/ask`, `GET /api/question/score`, and `GET /api/question/score/stream` endpoints are marked deprecated in Swagger and remain only for the legacy static pages.
-
-## Main API Areas
-
-All business APIs use the response shape below:
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {}
-}
-```
-
-- `POST /api/auth/register` and `POST /api/auth/login`
-- `GET /api/ai/models`
-- `GET` and `PUT /api/users/me/ai-preference`
-- `POST /api/question/ask`
-- `POST /api/question/score`
-- `GET /api/question/score/stream`
-- `GET /api/mistakes`
-- `GET /api/progress`
-
-Most APIs require `Authorization: Bearer <token>`. The legacy SSE endpoint also recognizes a deprecated `token` query parameter only for the old static page. New frontend code must not put JWTs in URLs. Its successful stream contains ordinary `data:` text chunks followed by `event: done` with an `AiScoreResult` JSON payload; failures are delivered as `event: error` text. An unauthenticated stream sends an in-stream login message and completes instead of returning a normal HTTP `401` response.
-
-## Database Migrations
-
-Flyway migrations are the only source of truth for production schema changes:
-
-- `V1__create_core_schema.sql`: core user and answer-record schema
-- `V2__add_user_ai_model_selection.sql`: model allowlist, policy, and user preference
-- `V3__correct_deepseek_v4_flash_model_code.sql`: corrected the DeepSeek model identifier in place
-
-`backend/database/local/reset_interview_db.sql` is local-only and destructive. Never use it against a cloud or production database.
-
-## Documentation
-
-- [Collaboration and current project status](AGENTS.md)
-- [Documentation index](docs/README.md)
-- [Backend architecture notes](docs/backend-architecture.md)
-- [Frontend architecture notes](docs/frontend-architecture.md)
-- [Frontend-backend integration notes](docs/frontend-backend-integration.md)
-- [Upgrade plan](docs/project-upgrade-plan.md)
-
-The OpenAPI contract is the source of truth for frontend API integration. The independent Vue frontend has completed local live integration verification; the next planned phase is a separately reviewed retirement of the legacy static pages and their compatibility-only backend routes.
-
-## Development Rules
-
-- Keep secrets out of Git, logs, static pages, and documentation examples.
-- Add a new Flyway migration for every schema change; never edit an applied migration.
-- Keep controllers, business services, mappers, AI clients, and SSE transport responsibilities separate.
-- Add or update focused tests when business behavior changes.
-- Use Git commits to keep each coherent change traceable.
+- 模拟公司面试仅是基于公开常见招聘侧重点的风格模拟，不能宣称拥有真实题库、真实内部流程或私有信息。
+- AI 服务依赖外部 Provider，网络、配额或中转服务异常时会影响相应模型；DeepSeek 与 custom Provider 配置彼此独立。
+- 当前部署为单机 Docker Compose，适合个人项目和中小流量验证；高可用、对象存储、异步队列与可观测性平台属于后续演进方向。

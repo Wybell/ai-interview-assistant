@@ -1056,6 +1056,15 @@ Current highest priority: rebuild or restart the local backend with Redis availa
 
 Current highest priority: rebuild or restart the local backend, refresh the mock-interview page, and manually verify the resume drawer with a PDF, DOCX, or TXT resume before any deployment or push.
 
+## Documentation and Production Release (2026-08-12)
+
+- Rewrote the repository README to match the current Vue 3, Spring Boot, multi-model, three-mode practice, resume preview, and mock-interview implementation. It documents only verified behavior and states the single-node deployment boundary.
+- Added `docs/current-architecture.md`, `docs/deployment-and-acceptance.md`, and `docs/resume-project-description.md` for architecture review, repeatable server release, post-release user acceptance, and autumn recruitment discussion.
+- Production release to Tencent Cloud completed after backing up the external configuration and `interview_db`. The server pulled commit `0ab6f7a`, rebuilt the backend and frontend containers, and Flyway migrated `interview_db` from V5 to V9.
+- Release verification passed: all AI Interview Assistant containers are running, frontend loopback probe returned `200`, protected backend probe returned expected `401`, and `nginx -t` succeeded. The unrelated EventFlow containers were not changed.
+
+Current highest priority: complete a real browser acceptance pass on the cloud endpoint, then keep the application stable while preparing interview demonstrations and explanations. Do not add new product features or deploy further changes until a concrete requirement is confirmed.
+
 ## Mock Interview Company Simulation (2026-08-12)
 
 - Added Flyway V9 migration `V9__add_mock_interview_target_company.sql`. It adds the nullable `mock_interview_session.target_company` column; V1 through V8 remain unchanged.
