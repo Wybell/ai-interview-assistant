@@ -5,12 +5,16 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
   answerMockInterviewTurn,
   createMockInterview,
+  endMockInterviewEarly,
   finishMockInterview,
+  getActiveMockInterviews,
   getFollowUpMockInterviewQuestion,
+  getMockInterviewSession,
   getNextMockInterviewQuestion,
 } from '@/api/mock-interview-api';
 import { deleteResume, getResumes, previewResume, uploadResume } from '@/api/resume-api';
 import type {
+  ActiveMockInterview,
   InterviewRound,
   MockInterviewSession,
   MockInterviewTurn,
@@ -19,6 +23,7 @@ import type {
 } from '@/types/interview';
 
 const resumes = ref<ResumeDocument[]>([]);
+const activeSessions = ref<ActiveMockInterview[]>([]);
 const selectedResumeId = ref<number | null>(null);
 const targetPosition = ref('Java 后端实习生');
 const targetCompany = ref('');
@@ -73,19 +78,23 @@ const currentMainTurn = computed(() => {
   if (!currentTurn.value || !session.value) return null;
   return currentTurn.value.turnType === 'MAIN'
     ? currentTurn.value
-    : session.value.turns.find((turn) => turn.id === currentTurn.value?.parentTurnId) ?? null;
+    : (session.value.turns.find((turn) => turn.id === currentTurn.value?.parentTurnId) ?? null);
 });
 const followUpAvailable = computed(() => {
   const mainTurn = currentMainTurn.value;
   return Boolean(
     mainTurn &&
-      currentTurnAnswered.value &&
-      session.value?.status === 'ACTIVE' &&
-      session.value.turns.filter((turn) => turn.parentTurnId === mainTurn.id).length < 2,
+    currentTurnAnswered.value &&
+    session.value?.status === 'ACTIVE' &&
+    session.value.turns.filter((turn) => turn.parentTurnId === mainTurn.id).length < 2,
   );
 });
 const roundCompletionHint = computed(() => {
-  if (!session.value || !currentTurnAnswered.value || session.value.questionCount < session.value.questionLimit) {
+  if (
+    !session.value ||
+    !currentTurnAnswered.value ||
+    session.value.questionCount < session.value.questionLimit
+  ) {
     return '';
   }
   return currentTurn.value?.turnType === 'FOLLOW_UP' && currentTurn.value.followUpNo === 2
@@ -107,8 +116,16 @@ const roundDescriptions: Record<InterviewRound, string> = {
 const roundOptions: Array<{ value: InterviewRound; label: string; description: string }> = [
   { value: 'FIRST', label: '初轮技术面', description: '简历核验、基础知识、项目概述与表达沟通' },
   { value: 'SECOND', label: '深入技术面', description: '项目深挖、原理、排障、技术取舍与场景追问' },
-  { value: 'THIRD', label: '综合终面', description: '系统设计、业务理解、协作、责任意识与决策判断' },
-  { value: 'HR', label: 'HR 沟通面', description: '求职动机、岗位匹配、职业规划、沟通协作与到岗安排' },
+  {
+    value: 'THIRD',
+    label: '综合终面',
+    description: '系统设计、业务理解、协作、责任意识与决策判断',
+  },
+  {
+    value: 'HR',
+    label: 'HR 沟通面',
+    description: '求职动机、岗位匹配、职业规划、沟通协作与到岗安排',
+  },
 ];
 
 function getErrorMessage(requestError: unknown, fallback: string): string {
@@ -123,6 +140,14 @@ async function loadResumes(): Promise<void> {
     }
   } catch (requestError) {
     error.value = getErrorMessage(requestError, '简历列表加载失败');
+  }
+}
+
+async function loadActiveSessions(): Promise<void> {
+  try {
+    activeSessions.value = await getActiveMockInterviews();
+  } catch (requestError) {
+    error.value = getErrorMessage(requestError, '进行中的模拟面试加载失败');
   }
 }
 
@@ -153,6 +178,11 @@ async function handleFileChange(event: Event): Promise<void> {
 }
 
 async function removeResume(resume: ResumeDocument): Promise<void> {
+  const confirmed = window.confirm(
+    `确定删除「${resume.fileName}」吗？\n\n简历原文件会被删除。已完成的模拟面试记录、题目、回答、评分和总结会保留，并标记为“原简历已删除”。`,
+  );
+  if (!confirmed) return;
+
   loading.value = true;
   error.value = '';
   try {
@@ -239,9 +269,10 @@ function toggleSpeechInput(): void {
     }
   };
   speechRecognition.onerror = (event) => {
-    speechError.value = event.error === 'not-allowed'
-      ? '麦克风权限被拒绝，请在浏览器设置中允许使用麦克风'
-      : '语音识别失败，请重试或直接输入';
+    speechError.value =
+      event.error === 'not-allowed'
+        ? '麦克风权限被拒绝，请在浏览器设置中允许使用麦克风'
+        : '语音识别失败，请重试或直接输入';
     isListening.value = false;
   };
   speechRecognition.onend = () => {
@@ -297,9 +328,10 @@ async function continueInterview(): Promise<void> {
 
 async function followUpInterview(): Promise<void> {
   if (!session.value || !currentTurn.value) return;
-  const mainTurn = currentTurn.value.turnType === 'MAIN'
-    ? currentTurn.value
-    : session.value.turns.find((turn) => turn.id === currentTurn.value?.parentTurnId);
+  const mainTurn =
+    currentTurn.value.turnType === 'MAIN'
+      ? currentTurn.value
+      : session.value.turns.find((turn) => turn.id === currentTurn.value?.parentTurnId);
   if (!mainTurn) return;
   loading.value = true;
   error.value = '';
@@ -320,8 +352,43 @@ async function finishInterview(): Promise<void> {
   error.value = '';
   try {
     session.value = await finishMockInterview(session.value.id);
+    await loadActiveSessions();
   } catch (requestError) {
     error.value = getErrorMessage(requestError, '面试总结生成失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function continueActiveInterview(sessionId: number): Promise<void> {
+  loading.value = true;
+  error.value = '';
+  try {
+    session.value = await getMockInterviewSession(sessionId);
+    answerDraft.value = '';
+  } catch (requestError) {
+    error.value = getErrorMessage(requestError, '加载模拟面试失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function endInterviewEarly(sessionId: number, resetScenario: boolean): Promise<void> {
+  const confirmed = window.confirm(
+    '确定提前结束本轮面试吗？\n\n已有题目、回答和评分会保留，之后可用于面试复盘；结束后不能继续答题，但可以删除本轮使用的简历。',
+  );
+  if (!confirmed) return;
+
+  loading.value = true;
+  error.value = '';
+  try {
+    await endMockInterviewEarly(sessionId);
+    if (session.value?.id === sessionId) {
+      returnToSetup(resetScenario);
+    }
+    await loadActiveSessions();
+  } catch (requestError) {
+    error.value = getErrorMessage(requestError, '结束面试失败');
   } finally {
     loading.value = false;
   }
@@ -343,7 +410,10 @@ function returnToSetup(resetScenario: boolean): void {
   error.value = '';
 }
 
-onMounted(() => void loadResumes());
+onMounted(() => {
+  void loadResumes();
+  void loadActiveSessions();
+});
 onBeforeUnmount(() => speechRecognition?.abort());
 </script>
 
@@ -355,13 +425,35 @@ onBeforeUnmount(() => speechRecognition?.abort());
         <p>基于个人简历，以不同轮次完成连续的岗位面试训练。</p>
       </div>
       <span v-if="session" class="session-status">{{
-        session.status === 'ACTIVE' ? `进行中 · ${session.questionCount}/${session.questionLimit} 道主问题` : '已完成'
+        session.status === 'ACTIVE'
+          ? `进行中 · ${session.questionCount}/${session.questionLimit} 道主问题`
+          : session.status === 'COMPLETED'
+            ? '已完成'
+            : '已提前结束'
       }}</span>
     </header>
 
     <p v-if="error" class="error-message" role="alert">{{ error }}</p>
 
     <template v-if="!session">
+      <section v-if="activeSessions.length" class="active-sessions" aria-labelledby="active-sessions-heading">
+        <div>
+          <p class="section-label">待处理</p>
+          <h2 id="active-sessions-heading">进行中的模拟面试</h2>
+        </div>
+        <div v-for="activeSession in activeSessions" :key="activeSession.id" class="active-session-item">
+          <div>
+            <strong>{{ activeSession.targetPosition }}</strong>
+            <p>
+              {{ roundLabels[activeSession.interviewRound] }} · {{ activeSession.questionCount }}/{{ activeSession.questionLimit }} 道主问题
+            </p>
+          </div>
+          <div class="active-session-actions">
+            <el-button :disabled="loading" @click="continueActiveInterview(activeSession.id)">继续本轮</el-button>
+            <el-button :disabled="loading" @click="endInterviewEarly(activeSession.id, false)">结束面试</el-button>
+          </div>
+        </div>
+      </section>
       <section class="setup-section" aria-labelledby="resume-heading">
         <div class="section-heading">
           <div>
@@ -427,13 +519,18 @@ onBeforeUnmount(() => speechRecognition?.abort());
           </div>
         </div>
         <div class="setup-form">
-          <el-form-item label="求职岗位"
-            ><el-input
+          <div class="setup-field">
+            <label class="setup-field__label" for="target-position">求职岗位</label>
+            <el-input
+              id="target-position"
               v-model="targetPosition"
               maxlength="100"
               show-word-limit
-              placeholder="例如：Java 后端实习生" /></el-form-item
-          ><el-form-item label="面试轮次">
+              placeholder="例如：Java 后端实习生"
+            />
+          </div>
+          <div class="setup-field">
+            <span class="setup-field__label">面试轮次</span>
             <div class="round-options" role="radiogroup" aria-label="面试轮次">
               <label
                 v-for="round in roundOptions"
@@ -441,7 +538,12 @@ onBeforeUnmount(() => speechRecognition?.abort());
                 class="round-option"
                 :class="{ 'round-option--selected': interviewRound === round.value }"
               >
-                <input v-model="interviewRound" type="radio" name="interview-round" :value="round.value" />
+                <input
+                  v-model="interviewRound"
+                  type="radio"
+                  name="interview-round"
+                  :value="round.value"
+                />
                 <span class="round-option__content">
                   <strong>{{ round.label }}</strong>
                   <small>{{ round.description }}</small>
@@ -449,16 +551,20 @@ onBeforeUnmount(() => speechRecognition?.abort());
               </label>
             </div>
             <p class="round-description">{{ roundDescriptions[interviewRound] }}</p>
-          </el-form-item>
-          <el-form-item label="意向公司（选填）" class="company-field">
+          </div>
+          <div class="setup-field company-field">
+            <label class="setup-field__label" for="target-company">模拟公司（选填）</label>
             <el-input
+              id="target-company"
               v-model="targetCompany"
               maxlength="100"
               show-word-limit
               placeholder="例如：腾讯、字节跳动、小米"
             />
-            <p class="company-description">用于公司风格模拟；未填写或没有可参考信息时按通用岗位面试进行。</p>
-          </el-form-item>
+            <p class="company-description">
+              用于公司风格模拟；未填写或没有可参考信息时按通用岗位面试进行。
+            </p>
+          </div>
         </div>
         <el-button
           type="primary"
@@ -476,7 +582,11 @@ onBeforeUnmount(() => speechRecognition?.abort());
         <main class="interview-workspace">
           <section v-if="currentTurn" class="question-section">
             <p class="section-label">
-              {{ currentTurn.turnType === 'FOLLOW_UP' ? `第 ${currentTurn.sequenceNo} 题 · 追问 ${currentTurn.followUpNo}/2` : `第 ${currentTurn.sequenceNo} 道主问题` }}
+              {{
+                currentTurn.turnType === 'FOLLOW_UP'
+                  ? `第 ${currentTurn.sequenceNo} 题 · 追问 ${currentTurn.followUpNo}/2`
+                  : `第 ${currentTurn.sequenceNo} 道主问题`
+              }}
             </p>
             <h2>{{ currentTurn.question }}</h2>
           </section>
@@ -513,7 +623,9 @@ onBeforeUnmount(() => speechRecognition?.abort());
               <div class="answer-actions">
                 <el-button type="primary" :icon="Send" :loading="loading" @click="scoreAnswer"
                   >提交回答</el-button
-                ><el-button :disabled="loading" @click="finishInterview">结束面试</el-button>
+                ><el-button :disabled="loading" @click="endInterviewEarly(session.id, true)"
+                  >提前结束面试</el-button
+                >
               </div>
             </template>
             <template v-else>
@@ -526,10 +638,7 @@ onBeforeUnmount(() => speechRecognition?.abort());
               <p>{{ currentTurn.correctAnswer }}</p>
               <p v-if="roundCompletionHint" class="completion-hint">{{ roundCompletionHint }}</p>
               <div v-if="session.status === 'ACTIVE'" class="answer-actions">
-                <el-button
-                  v-if="followUpAvailable"
-                  :loading="loading"
-                  @click="followUpInterview"
+                <el-button v-if="followUpAvailable" :loading="loading" @click="followUpInterview"
                   >追问这一题</el-button
                 >
                 <el-button
@@ -539,7 +648,15 @@ onBeforeUnmount(() => speechRecognition?.abort());
                   :loading="loading"
                   @click="continueInterview"
                   >下一题</el-button
-                ><el-button :disabled="loading" @click="finishInterview">结束本轮并生成总结</el-button>
+                ><el-button :disabled="loading" @click="endInterviewEarly(session.id, true)"
+                  >提前结束面试</el-button
+                >
+                <el-button
+                  v-if="session.questionCount >= session.questionLimit"
+                  :disabled="loading"
+                  @click="finishInterview"
+                  >完成本轮并生成总结</el-button
+                >
               </div>
             </template>
           </section>
@@ -570,10 +687,18 @@ onBeforeUnmount(() => speechRecognition?.abort());
             <h2>面试总结</h2>
             <p>{{ session.summary }}</p>
             <div class="answer-actions">
-              <el-button type="primary" :icon="Play" @click="returnToSetup(false)">再来一场</el-button>
+              <el-button type="primary" :icon="Play" @click="returnToSetup(false)"
+                >再来一场</el-button
+              >
               <el-button @click="returnToSetup(true)">重新设置</el-button>
             </div>
           </section>
+          <el-button
+            v-else-if="session.status === 'ACTIVE'"
+            :disabled="loading"
+            @click="endInterviewEarly(session.id, true)"
+            >结束面试并重新设置</el-button
+          >
         </aside>
       </div>
     </template>
@@ -625,6 +750,45 @@ onBeforeUnmount(() => speechRecognition?.abort());
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+}
+.active-sessions {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  background: var(--primary-subtle);
+}
+.active-sessions h2 {
+  color: var(--ink-strong);
+  font-size: 16px;
+}
+.active-session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.active-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.active-session-item strong,
+.active-session-item p {
+  display: block;
+}
+.active-session-item strong {
+  color: var(--ink-strong);
+  font-size: 14px;
+}
+.active-session-item p {
+  margin-top: 4px;
+  color: var(--ink-muted);
+  font-size: 12px;
 }
 .setup-section {
   display: grid;
@@ -751,6 +915,17 @@ onBeforeUnmount(() => speechRecognition?.abort());
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
 }
+.setup-field {
+  min-width: 0;
+}
+.setup-field__label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
 .round-options {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -765,7 +940,9 @@ onBeforeUnmount(() => speechRecognition?.abort());
   border-radius: var(--radius-sm);
   background: var(--surface);
   cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
 }
 .round-option:hover {
   border-color: var(--primary);
@@ -953,6 +1130,13 @@ onBeforeUnmount(() => speechRecognition?.abort());
 @media (max-width: 720px) {
   .round-options {
     grid-template-columns: 1fr;
+  }
+  .active-session-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .active-session-actions {
+    justify-content: flex-start;
   }
 }
 @media (max-width: 600px) {

@@ -1,5 +1,12 @@
 import { request } from '@/api/client';
-import type { InterviewRound, MockInterviewSession, MockInterviewTurn } from '@/types/interview';
+import type {
+  ActiveMockInterview,
+  InterviewRound,
+  MockInterviewReview,
+  MockInterviewReviewSummary,
+  MockInterviewSession,
+  MockInterviewTurn,
+} from '@/types/interview';
 
 export function createMockInterview(payload: {
   resumeId: number;
@@ -44,4 +51,31 @@ export function finishMockInterview(sessionId: number): Promise<MockInterviewSes
     url: `/mock-interviews/${sessionId}/finish`,
     method: 'post',
   });
+}
+
+export function getMockInterviewSession(sessionId: number): Promise<MockInterviewSession> {
+  return request<MockInterviewSession>({ url: `/mock-interviews/${sessionId}`, method: 'get' });
+}
+
+export function getActiveMockInterviews(): Promise<ActiveMockInterview[]> {
+  return request<ActiveMockInterview[]>({ url: '/mock-interviews/active', method: 'get' });
+}
+
+export function endMockInterviewEarly(sessionId: number): Promise<MockInterviewSession> {
+  return request<MockInterviewSession>({
+    url: `/mock-interviews/${sessionId}/end`,
+    method: 'post',
+  });
+}
+
+export function getMockInterviewReviews(): Promise<MockInterviewReviewSummary[]> {
+  return request<MockInterviewReviewSummary[]>({ url: '/mock-interviews/reviews', method: 'get' });
+}
+
+export function getMockInterviewReview(sessionId: number): Promise<MockInterviewReview> {
+  return request<MockInterviewReview>({ url: `/mock-interviews/${sessionId}/review`, method: 'get' });
+}
+
+export function generateMockInterviewReview(sessionId: number): Promise<MockInterviewReview> {
+  return request<MockInterviewReview>({ url: `/mock-interviews/${sessionId}/review`, method: 'post' });
 }

@@ -99,12 +99,49 @@ export interface MockInterviewSession {
   targetPosition: string;
   targetCompany: string | null;
   interviewRound: InterviewRound;
-  status: 'ACTIVE' | 'COMPLETED';
+  status: 'ACTIVE' | 'COMPLETED' | 'ENDED_EARLY';
   questionCount: number;
   questionLimit: number;
   aiModelId: number;
   summary: string | null;
   createTime: string;
   finishedTime: string | null;
+  turns: MockInterviewTurn[];
+}
+
+export interface ActiveMockInterview {
+  id: number;
+  resumeId: number | null;
+  resumeFileName: string | null;
+  targetPosition: string;
+  interviewRound: InterviewRound;
+  questionCount: number;
+  questionLimit: number;
+  createTime: string;
+}
+
+export interface MockInterviewReviewSummary {
+  sessionId: number;
+  targetPosition: string;
+  targetCompany: string | null;
+  interviewRound: InterviewRound;
+  status: 'COMPLETED' | 'ENDED_EARLY';
+  resumeFileName: string | null;
+  answeredTurnCount: number;
+  mainQuestionCount: number;
+  followUpCount: number;
+  averageScore: number | null;
+  reviewGenerated: boolean;
+  reviewAvailable: boolean;
+  finishedTime: string | null;
+  createTime: string;
+}
+
+export interface MockInterviewReview extends Omit<MockInterviewReviewSummary, 'reviewGenerated' | 'reviewAvailable'> {
+  overallFeedback: string;
+  strengths: string;
+  improvementAreas: string;
+  actionItems: string;
+  generatedTime: string;
   turns: MockInterviewTurn[];
 }

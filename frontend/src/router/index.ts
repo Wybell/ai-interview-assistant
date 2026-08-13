@@ -28,6 +28,11 @@ const routes: RouteRecordRaw[] = [
         name: 'mock-interview',
         component: () => import('@/views/MockInterviewView.vue'),
       },
+      {
+        path: 'interview-reviews',
+        name: 'interview-reviews',
+        component: () => import('@/views/InterviewReviewsView.vue'),
+      },
       { path: 'mistakes', name: 'mistakes', component: () => import('@/views/MistakesView.vue') },
       { path: 'progress', name: 'progress', component: () => import('@/views/ProgressView.vue') },
       {

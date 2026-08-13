@@ -2,6 +2,7 @@
 import {
   BookOpen,
   ChartBar,
+  FileSearch,
   ClipboardList,
   Library,
   MessagesSquare,
@@ -22,6 +23,7 @@ const authStore = useAuthStore();
 
 const navigation = [
   { name: 'mock-interview', label: '模拟面试', icon: MessagesSquare },
+  { name: 'interview-reviews', label: '面试复盘', icon: FileSearch },
   { name: 'practice', label: '面试训练', icon: BookOpen },
   { name: 'mistakes', label: '错题本', icon: ClipboardList },
   { name: 'progress', label: '学习进度', icon: ChartBar },

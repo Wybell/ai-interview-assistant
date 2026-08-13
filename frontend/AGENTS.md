@@ -221,10 +221,27 @@ OpenAPI 是前端接口的正式契约。实现或调整任何联调前，先查
 - Added a Node 22 plus pnpm multi-stage Docker build and an Nginx SPA runtime configuration for the frontend.
 - `../backend/docker-compose.prod.yml` publishes the frontend only on a configurable loopback port; cloud cutover still requires image-build verification, host Nginx proxy configuration, and real-domain desktop/mobile validation.
 
+## Mock Interview Session Ending (2026-08-13)
+
+- The mock-interview workspace distinguishes normal completion from ending early. Normal completion is available only after all configured main questions are answered and produces the AI summary.
+- An active session can be ended early through `POST /api/mock-interviews/{sessionId}/end`. Its answered turns remain available for later review, but the session can no longer accept answers or generate questions.
+- Returning to setup does not silently end an active session. The setup screen loads `GET /api/mock-interviews/active` and offers both continue and end-interview actions.
+- Both `COMPLETED` and `ENDED_EARLY` sessions release their resume for deletion; only `ACTIVE` sessions block deletion. The resume file is deleted while historical interview data is retained.
+
+## Mock Interview Review (2026-08-13)
+
+- Added the authenticated `/interview-reviews` page and sidebar entry. It lists only ended mock-interview sessions with status, answer count, follow-up count, average score, and review availability.
+- A completed session normally has an automatically generated review. An early-ended session with answers can generate one on demand; an unanswered session is clearly unavailable instead of calling the AI.
+- Review detail uses plain-text AI feedback and expandable per-turn question, answer, score, suggestion, and reference-answer sections. It remains usable after the original resume has been deleted.
+- API requests use `GET /mock-interviews/reviews`, `GET /mock-interviews/{id}/review`, and `POST /mock-interviews/{id}/review`, relying on the shared authenticated client.
+
 ## Current Status (2026-08-12)
 
 - Added custom-topic and knowledge-base-topic practice modes. A selected knowledge topic is submitted as `knowledgeTopicId`, while manual input remains a general AI topic. The knowledge reader can open the matching practice flow directly.
 - Added the authenticated `/mock-interview` workspace for resume upload, target-position and interview-round selection, answer scoring, follow-up questions, and closing reports.
+- The mock-interview setup now uses explicit visible labels for the target-position and optional target-company inputs, independent of Element Plus form context.
+- Resume deletion requires a Chinese confirmation and removes only the private resume file. Completed mock-interview history is retained server-side for a future review feature, while an active interview blocks deletion.
+- AI prompt-injection protection is enforced server-side for all AI calls; no prompt or credential is exposed to the frontend.
 - Frontend validation passed: ESLint, 6 Vitest tests, and production build. Desktop practice and mobile mock-interview layouts were visually checked with mocked protected API responses.
 
 Current highest priority: complete a real authenticated local smoke test after the new backend external AI configuration is supplied; do not place an API key in frontend source or Git.
