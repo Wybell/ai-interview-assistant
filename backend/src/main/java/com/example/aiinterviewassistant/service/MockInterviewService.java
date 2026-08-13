@@ -18,5 +18,7 @@ public interface MockInterviewService {
 
     MockInterviewTurnResponse generateNextQuestion(Long userId, Long sessionId);
 
+    MockInterviewTurnResponse generateFollowUpQuestion(Long userId, Long sessionId, Long turnId);
+
     MockInterviewSessionResponse finishSession(Long userId, Long sessionId);
 }

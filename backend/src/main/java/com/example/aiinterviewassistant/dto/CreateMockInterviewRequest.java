@@ -21,6 +21,6 @@ public class CreateMockInterviewRequest {
     private String targetCompany;
 
     @NotBlank(message = "Interview round must not be blank")
-    @Pattern(regexp = "FIRST|SECOND|THIRD", message = "Interview round is invalid")
+    @Pattern(regexp = "FIRST|SECOND|THIRD|HR", message = "Interview round is invalid")
     private String interviewRound;
 }

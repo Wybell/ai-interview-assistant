@@ -31,7 +31,7 @@ import java.util.UUID;
 @Service
 public class ResumeServiceImpl implements ResumeService {
 
-    private static final long MAX_FILE_SIZE = 2L * 1024 * 1024;
+    private static final long MAX_FILE_SIZE = 10L * 1024 * 1024;
 
     private final ResumeDocumentMapper resumeDocumentMapper;
     private final MockInterviewSessionMapper mockInterviewSessionMapper;
@@ -126,7 +126,7 @@ public class ResumeServiceImpl implements ResumeService {
             throw new BusinessException(400, "Resume file must not be empty");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new BusinessException(400, "Resume file must not exceed 2 MB");
+            throw new BusinessException(400, "简历文件不能超过 10 MB");
         }
         String originalFileName = file.getOriginalFilename();
         if (originalFileName == null || originalFileName.isBlank() || !isSupported(getExtension(originalFileName))) {

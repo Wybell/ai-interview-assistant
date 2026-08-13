@@ -23,7 +23,9 @@ import java.util.List;
 @Service
 public class MockInterviewServiceImpl implements MockInterviewService {
 
-    private static final int MAX_QUESTION_COUNT = 8;
+    private static final int MAX_FOLLOW_UP_COUNT = 2;
+    private static final String MAIN_TURN = "MAIN";
+    private static final String FOLLOW_UP_TURN = "FOLLOW_UP";
     private static final String ACTIVE_STATUS = "ACTIVE";
     private static final String COMPLETED_STATUS = "COMPLETED";
 
@@ -65,6 +67,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
         session.setInterviewRound(interviewRound);
         session.setStatus(ACTIVE_STATUS);
         session.setQuestionCount(0);
+        session.setQuestionLimit(questionLimitFor(interviewRound));
         session.setAiModelId(aiModel.id());
         session.setCreateTime(LocalDateTime.now());
         sessionMapper.insert(session);
@@ -83,8 +86,12 @@ public class MockInterviewServiceImpl implements MockInterviewService {
     public MockInterviewTurnResponse answerTurn(Long userId, Long sessionId, Long turnId, String answer) {
         MockInterviewSession session = getActiveSession(userId, sessionId);
         MockInterviewTurn turn = getOwnedTurn(session, turnId);
+        MockInterviewTurn currentTurn = latestTurn(getTurns(sessionId));
+        if (currentTurn == null || !turnId.equals(currentTurn.getId())) {
+            throw new BusinessException(409, "请先回答当前问题，不能跳过问题作答");
+        }
         if (turn.getUserAnswer() != null) {
-            throw new BusinessException(409, "This question has already been answered");
+            throw new BusinessException(409, "这道题已经回答过了");
         }
         EffectiveAiModel aiModel = userAiPreferenceService.resolveAvailableModel(session.getAiModelId());
         AiScoreResult scoreResult = aiService.scoreAnswer(aiModel, turn.getQuestion(), answer.trim());
@@ -100,11 +107,14 @@ public class MockInterviewServiceImpl implements MockInterviewService {
     public MockInterviewTurnResponse generateNextQuestion(Long userId, Long sessionId) {
         MockInterviewSession session = getActiveSession(userId, sessionId);
         List<MockInterviewTurn> turns = getTurns(sessionId);
-        if (turns.isEmpty() || turns.get(turns.size() - 1).getUserAnswer() == null) {
-            throw new BusinessException(409, "Answer the current question before continuing");
+        MockInterviewTurn currentTurn = latestTurn(turns);
+        if (currentTurn == null || currentTurn.getUserAnswer() == null) {
+            throw new BusinessException(409, "请先完成当前问题的回答");
         }
-        if (session.getQuestionCount() >= MAX_QUESTION_COUNT) {
-            throw new BusinessException(409, "This interview has reached the 8-question limit");
+        int questionLimit = session.getQuestionLimit() == null
+                ? questionLimitFor(session.getInterviewRound()) : session.getQuestionLimit();
+        if (session.getQuestionCount() >= questionLimit) {
+            throw new BusinessException(409, "本轮主问题已完成，你可以继续追问当前问题，或结束本轮面试");
         }
         ResumeDocument resume = resumeService.getOwnedResume(userId, session.getResumeId());
         EffectiveAiModel aiModel = userAiPreferenceService.resolveAvailableModel(session.getAiModelId());
@@ -112,11 +122,62 @@ public class MockInterviewServiceImpl implements MockInterviewService {
     }
 
     @Override
+    public MockInterviewTurnResponse generateFollowUpQuestion(Long userId, Long sessionId, Long turnId) {
+        MockInterviewSession session = getActiveSession(userId, sessionId);
+        MockInterviewTurn parentTurn = getOwnedTurn(session, turnId);
+        if (!MAIN_TURN.equals(defaultTurnType(parentTurn))) {
+            throw new BusinessException(409, "追问只能针对主问题，不能继续追问追问");
+        }
+        List<MockInterviewTurn> turns = getTurns(sessionId);
+        MockInterviewTurn currentTurn = latestTurn(turns);
+        if (currentTurn == null || currentTurn.getUserAnswer() == null) {
+            throw new BusinessException(409, "请先完成当前问题的回答");
+        }
+        if (!isCurrentQuestion(parentTurn, currentTurn)) {
+            throw new BusinessException(409, "请先处理当前问题，不能跳过当前问题追问");
+        }
+        int followUpCount = (int) turns.stream()
+                .filter(turn -> turnId.equals(turn.getParentTurnId()))
+                .count();
+        if (followUpCount >= MAX_FOLLOW_UP_COUNT) {
+            throw new BusinessException(409, "当前问题最多追问两次");
+        }
+
+        ResumeDocument resume = resumeService.getOwnedResume(userId, session.getResumeId());
+        EffectiveAiModel aiModel = userAiPreferenceService.resolveAvailableModel(session.getAiModelId());
+        MockInterviewTurn contextTurn = currentTurn;
+        MockInterviewTurn followUp = new MockInterviewTurn();
+        followUp.setSessionId(session.getId());
+        followUp.setSequenceNo(parentTurn.getSequenceNo());
+        followUp.setTurnType(FOLLOW_UP_TURN);
+        followUp.setParentTurnId(parentTurn.getId());
+        followUp.setFollowUpNo(followUpCount + 1);
+        followUp.setQuestion(aiService.generateMockInterviewFollowUpQuestion(
+                aiModel,
+                resume.getExtractedContent(),
+                session.getTargetPosition(),
+                session.getTargetCompany(),
+                session.getInterviewRound(),
+                parentTurn.getQuestion(),
+                contextTurn.getUserAnswer(),
+                contextTurn.getScore(),
+                contextTurn.getSuggestion(),
+                turns.stream()
+                        .filter(turn -> turnId.equals(turn.getParentTurnId()))
+                        .map(MockInterviewTurn::getQuestion)
+                        .toList()));
+        followUp.setFocusTag(session.getTargetPosition());
+        followUp.setCreateTime(LocalDateTime.now());
+        turnMapper.insert(followUp);
+        return toTurnResponse(followUp);
+    }
+
+    @Override
     public MockInterviewSessionResponse finishSession(Long userId, Long sessionId) {
         MockInterviewSession session = getActiveSession(userId, sessionId);
         List<MockInterviewTurn> turns = getTurns(sessionId);
         if (turns.stream().noneMatch(turn -> turn.getUserAnswer() != null)) {
-            throw new BusinessException(409, "Answer at least one question before finishing");
+            throw new BusinessException(409, "至少回答一道题后才能结束本轮面试");
         }
         EffectiveAiModel aiModel = userAiPreferenceService.resolveAvailableModel(session.getAiModelId());
         session.setSummary(aiService.generateMockInterviewSummary(
@@ -139,6 +200,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
         MockInterviewTurn turn = new MockInterviewTurn();
         turn.setSessionId(session.getId());
         turn.setSequenceNo(session.getQuestionCount() + 1);
+        turn.setTurnType(MAIN_TURN);
         turn.setQuestion(aiService.generateMockInterviewQuestion(
                 aiModel,
                 resume.getExtractedContent(),
@@ -160,7 +222,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
                 .eq(MockInterviewSession::getId, sessionId)
                 .eq(MockInterviewSession::getUserId, userId));
         if (session == null) {
-            throw new BusinessException(404, "Mock interview session not found");
+            throw new BusinessException(404, "模拟面试不存在");
         }
         return session;
     }
@@ -168,7 +230,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
     private MockInterviewSession getActiveSession(Long userId, Long sessionId) {
         MockInterviewSession session = getOwnedSession(userId, sessionId);
         if (!ACTIVE_STATUS.equals(session.getStatus())) {
-            throw new BusinessException(409, "Mock interview is already completed");
+            throw new BusinessException(409, "本轮模拟面试已经结束");
         }
         return session;
     }
@@ -178,7 +240,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
                 .eq(MockInterviewTurn::getId, turnId)
                 .eq(MockInterviewTurn::getSessionId, session.getId()));
         if (turn == null) {
-            throw new BusinessException(404, "Mock interview question not found");
+            throw new BusinessException(404, "模拟面试问题不存在");
         }
         return turn;
     }
@@ -186,17 +248,24 @@ public class MockInterviewServiceImpl implements MockInterviewService {
     private List<MockInterviewTurn> getTurns(Long sessionId) {
         return turnMapper.selectList(new LambdaQueryWrapper<MockInterviewTurn>()
                 .eq(MockInterviewTurn::getSessionId, sessionId)
-                .orderByAsc(MockInterviewTurn::getSequenceNo));
+                .orderByAsc(MockInterviewTurn::getSequenceNo)
+                .orderByAsc(MockInterviewTurn::getCreateTime)
+                .orderByAsc(MockInterviewTurn::getId));
     }
 
     private String toTranscript(List<MockInterviewTurn> turns) {
         StringBuilder builder = new StringBuilder();
         for (MockInterviewTurn turn : turns) {
-            builder.append("Question ").append(turn.getSequenceNo()).append(": ").append(turn.getQuestion()).append('\n');
+            builder.append(MAIN_TURN.equals(defaultTurnType(turn)) ? "主问题 " : "追问 ")
+                    .append(turn.getSequenceNo());
+            if (turn.getFollowUpNo() != null) {
+                builder.append("（第").append(turn.getFollowUpNo()).append("次）");
+            }
+            builder.append("：").append(turn.getQuestion()).append('\n');
             if (turn.getUserAnswer() != null) {
-                builder.append("Answer: ").append(turn.getUserAnswer()).append('\n');
+                builder.append("回答：").append(turn.getUserAnswer()).append('\n');
                 if (turn.getScore() != null) {
-                    builder.append("Score: ").append(turn.getScore()).append("/10\n");
+                    builder.append("评分：").append(turn.getScore()).append("/10\n");
                 }
             }
         }
@@ -208,19 +277,22 @@ public class MockInterviewServiceImpl implements MockInterviewService {
             List<MockInterviewTurn> turns) {
         return new MockInterviewSessionResponse(
                 session.getId(), session.getTargetPosition(), session.getTargetCompany(), session.getInterviewRound(), session.getStatus(),
-                session.getQuestionCount(), session.getAiModelId(), session.getSummary(), session.getCreateTime(),
+                session.getQuestionCount(), session.getQuestionLimit() == null
+                        ? questionLimitFor(session.getInterviewRound()) : session.getQuestionLimit(),
+                session.getAiModelId(), session.getSummary(), session.getCreateTime(),
                 session.getFinishedTime(), turns.stream().map(this::toTurnResponse).toList());
     }
 
     private MockInterviewTurnResponse toTurnResponse(MockInterviewTurn turn) {
         return new MockInterviewTurnResponse(
-                turn.getId(), turn.getSequenceNo(), turn.getQuestion(), turn.getUserAnswer(), turn.getScore(),
+                turn.getId(), turn.getSequenceNo(), defaultTurnType(turn), turn.getParentTurnId(), turn.getFollowUpNo(),
+                turn.getQuestion(), turn.getUserAnswer(), turn.getScore(),
                 turn.getCorrectAnswer(), turn.getSuggestion(), turn.getCreateTime());
     }
 
     private void requireUser(Long userId) {
         if (userId == null) {
-            throw new BusinessException(401, "Authentication is required");
+            throw new BusinessException(401, "请先登录");
         }
     }
 
@@ -229,5 +301,28 @@ public class MockInterviewServiceImpl implements MockInterviewService {
             return null;
         }
         return value.trim();
+    }
+
+    private int questionLimitFor(String interviewRound) {
+        return switch (interviewRound) {
+            case "FIRST" -> 8;
+            case "SECOND" -> 12;
+            case "THIRD" -> 10;
+            case "HR" -> 4;
+            default -> throw new BusinessException(400, "面试轮次无效");
+        };
+    }
+
+    private MockInterviewTurn latestTurn(List<MockInterviewTurn> turns) {
+        return turns.isEmpty() ? null : turns.get(turns.size() - 1);
+    }
+
+    private boolean isCurrentQuestion(MockInterviewTurn parentTurn, MockInterviewTurn currentTurn) {
+        return parentTurn.getId().equals(currentTurn.getId())
+                || parentTurn.getId().equals(currentTurn.getParentTurnId());
+    }
+
+    private String defaultTurnType(MockInterviewTurn turn) {
+        return turn.getTurnType() == null ? MAIN_TURN : turn.getTurnType();
     }
 }

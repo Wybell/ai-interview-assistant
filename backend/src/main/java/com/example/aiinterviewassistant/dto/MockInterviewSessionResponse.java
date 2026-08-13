@@ -10,6 +10,7 @@ public record MockInterviewSessionResponse(
         String interviewRound,
         String status,
         int questionCount,
+        int questionLimit,
         Long aiModelId,
         String summary,
         LocalDateTime createTime,

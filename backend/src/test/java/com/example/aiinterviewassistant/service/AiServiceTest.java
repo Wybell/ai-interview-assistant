@@ -153,6 +153,68 @@ class AiServiceTest {
     }
 
     @Test
+    void shouldUseHrFocusForHrMockInterviewQuestion() {
+        when(aiClientRegistry.generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                anyString()
+        )).thenReturn("为什么选择这个岗位？");
+
+        aiService.generateMockInterviewQuestion(
+                SELECTED_MODEL,
+                "Java 后端项目经历",
+                "Java 后端实习生",
+                null,
+                "HR",
+                ""
+        );
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(aiClientRegistry).generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                promptCaptor.capture(),
+                anyString()
+        );
+        assertThat(promptCaptor.getValue())
+                .contains("HR 面试官", "求职动机", "不得提出技术题");
+    }
+
+    @Test
+    void shouldGenerateOneFollowUpFromCurrentAnswer() {
+        when(aiClientRegistry.generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                anyString()
+        )).thenReturn("你在这个取舍中具体承担了什么工作？");
+
+        aiService.generateMockInterviewFollowUpQuestion(
+                SELECTED_MODEL,
+                "负责订单服务开发",
+                "Java 后端实习生",
+                "腾讯",
+                "SECOND",
+                "请介绍这个项目的技术难点？",
+                "我负责了缓存设计和接口开发。",
+                8,
+                "可以补充技术取舍。",
+                List.of("你为什么选择这个方案？")
+        );
+
+        ArgumentCaptor<String> contentCaptor = ArgumentCaptor.forClass(String.class);
+        verify(aiClientRegistry).generate(
+                eq("change2proapi"),
+                eq("gpt-5.6-luna"),
+                anyString(),
+                contentCaptor.capture()
+        );
+        assertThat(contentCaptor.getValue())
+                .contains("你为什么选择这个方案？", "候选人回答", "本题评分");
+    }
+
+    @Test
     void shouldParseValidScoreResultThroughSelectedRuntimeModel() {
         when(aiClientRegistry.generate(
                 eq("change2proapi"),

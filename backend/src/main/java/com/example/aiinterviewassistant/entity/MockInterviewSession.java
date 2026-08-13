@@ -20,6 +20,7 @@ public class MockInterviewSession {
     private String interviewRound;
     private String status;
     private Integer questionCount;
+    private Integer questionLimit;
     private Long aiModelId;
     private String summary;
     private LocalDateTime createTime;

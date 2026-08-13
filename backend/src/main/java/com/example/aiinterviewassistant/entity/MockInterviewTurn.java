@@ -15,6 +15,9 @@ public class MockInterviewTurn {
     private Long id;
     private Long sessionId;
     private Integer sequenceNo;
+    private String turnType;
+    private Long parentTurnId;
+    private Integer followUpNo;
     private String question;
     private String userAnswer;
     private Integer score;

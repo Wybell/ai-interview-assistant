@@ -136,6 +136,7 @@ public class AiService {
             case "FIRST" -> "重点确认简历经历、职责边界、基础能力和沟通表达。";
             case "SECOND" -> "重点追问项目细节、技术取舍、问题排查和技术深度。";
             case "THIRD" -> "重点考察系统设计、业务判断、协作、责任意识和决策能力。";
+            case "HR" -> "重点考察求职动机、岗位匹配、公司选择、职业规划、稳定性、沟通协作和到岗安排，不得提出技术题。";
             default -> throw new BusinessException(400, "Interview round is invalid");
         };
         String content = "Target position: " + targetPosition
@@ -145,9 +146,44 @@ public class AiService {
                 + "\nPrevious turns:\n" + limitText(previousTranscript, 8_000);
         return generate(
                 aiModel,
-                "你是一位经验丰富的中文技术面试官。" + CHINESE_OUTPUT_RULE + roundFocus
+                "你是一位经验丰富的中文" + ("HR".equals(interviewRound) ? "HR 面试官" : "技术面试官") + "。" + CHINESE_OUTPUT_RULE + roundFocus
                         + "请只提出一个简洁的中文问题。只能使用简历中明确写出的事实；"
                         + "可以提出通用岗位相关问题，但不得编造候选人的经历。只输出问题。",
+                content
+        );
+    }
+
+    public String generateMockInterviewFollowUpQuestion(
+            EffectiveAiModel aiModel,
+            String resumeContent,
+            String targetPosition,
+            String targetCompany,
+            String interviewRound,
+            String mainQuestion,
+            String answer,
+            Integer score,
+            String suggestion,
+            List<String> previousFollowUps) {
+        String roundFocus = "HR".equals(interviewRound)
+                ? "围绕求职动机、岗位匹配、沟通协作、职业规划或到岗安排进行追问。"
+                : "围绕候选人的回答细节、真实经历、技术取舍或问题解决过程进行追问。";
+        String previousFollowUpText = previousFollowUps == null || previousFollowUps.isEmpty()
+                ? "无"
+                : String.join("\n", previousFollowUps);
+        String content = "求职岗位：" + targetPosition
+                + "\n意向公司：" + companyContext(targetCompany)
+                + "\n面试轮次：" + interviewRound
+                + "\n简历：\n" + limitText(resumeContent, 10_000)
+                + "\n主问题：" + mainQuestion
+                + "\n候选人回答：" + answer
+                + "\n本题评分：" + (score == null ? "未评分" : score + "/10")
+                + "\n改进建议：" + limitText(suggestion, 1_000)
+                + "\n已经生成的追问：\n" + previousFollowUpText;
+        return generate(
+                aiModel,
+                "你是一位经验丰富的中文面试官。" + CHINESE_OUTPUT_RULE + roundFocus
+                        + "只能基于主问题和候选人的回答追问，不得编造简历事实。"
+                        + "只生成一道新的追问，不要重复已有追问，不要生成答案、解析或第二道问题。",
                 content
         );
     }

@@ -57,6 +57,14 @@ public class MockInterviewController {
         return ApiResponse.success(mockInterviewService.generateNextQuestion(userContext.getCurrentUserId(), sessionId));
     }
 
+    @PostMapping("/{sessionId}/turns/{turnId}/follow-up")
+    public ApiResponse<MockInterviewTurnResponse> followUp(
+            @PathVariable Long sessionId,
+            @PathVariable Long turnId) {
+        return ApiResponse.success(mockInterviewService.generateFollowUpQuestion(
+                userContext.getCurrentUserId(), sessionId, turnId));
+    }
+
     @PostMapping("/{sessionId}/finish")
     public ApiResponse<MockInterviewSessionResponse> finish(@PathVariable Long sessionId) {
         return ApiResponse.success(mockInterviewService.finishSession(userContext.getCurrentUserId(), sessionId));
