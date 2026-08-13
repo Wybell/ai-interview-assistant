@@ -16,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class ResumeServiceImplTest {
@@ -64,5 +65,45 @@ class ResumeServiceImplTest {
         assertThatThrownBy(() -> service.preview(1L, 7L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Resume not found");
+    }
+
+    @Test
+    void shouldDeleteResumeWithoutRemovingCompletedInterviewHistory() {
+        ResumeDocument document = new ResumeDocument();
+        document.setId(7L);
+        document.setUserId(1L);
+        document.setStoragePath("target/test-resume.pdf");
+        when(resumeDocumentMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(document);
+        ResumeServiceImpl service = new ResumeServiceImpl(
+                resumeDocumentMapper,
+                mockInterviewSessionMapper,
+                new ResumeStorageProperties()
+        );
+
+        service.delete(1L, 7L);
+
+        verify(mockInterviewSessionMapper).selectCount(org.mockito.ArgumentMatchers.any());
+        verify(mockInterviewSessionMapper, never()).delete(org.mockito.ArgumentMatchers.any());
+        verify(resumeDocumentMapper).deleteById(7L);
+    }
+
+    @Test
+    void shouldRejectDeletionWhenResumeIsUsedByAnActiveInterview() {
+        ResumeDocument document = new ResumeDocument();
+        document.setId(7L);
+        document.setUserId(1L);
+        when(resumeDocumentMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(document);
+        when(mockInterviewSessionMapper.selectCount(org.mockito.ArgumentMatchers.any())).thenReturn(1L);
+        ResumeServiceImpl service = new ResumeServiceImpl(
+                resumeDocumentMapper,
+                mockInterviewSessionMapper,
+                new ResumeStorageProperties()
+        );
+
+        assertThatThrownBy(() -> service.delete(1L, 7L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("该简历正在用于进行中的模拟面试，请先完成或结束本轮面试后再删除");
+
+        verify(resumeDocumentMapper, never()).deleteById(7L);
     }
 }

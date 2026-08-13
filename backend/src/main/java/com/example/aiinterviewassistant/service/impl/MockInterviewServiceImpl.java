@@ -1,6 +1,7 @@
 package com.example.aiinterviewassistant.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.example.aiinterviewassistant.dto.ActiveMockInterviewResponse;
 import com.example.aiinterviewassistant.dto.AiScoreResult;
 import com.example.aiinterviewassistant.dto.MockInterviewSessionResponse;
 import com.example.aiinterviewassistant.dto.MockInterviewTurnResponse;
@@ -13,9 +14,12 @@ import com.example.aiinterviewassistant.mapper.MockInterviewTurnMapper;
 import com.example.aiinterviewassistant.model.EffectiveAiModel;
 import com.example.aiinterviewassistant.service.AiService;
 import com.example.aiinterviewassistant.service.MockInterviewService;
+import com.example.aiinterviewassistant.service.MockInterviewReviewService;
 import com.example.aiinterviewassistant.service.ResumeService;
 import com.example.aiinterviewassistant.service.UserAiPreferenceService;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,29 +27,35 @@ import java.util.List;
 @Service
 public class MockInterviewServiceImpl implements MockInterviewService {
 
+    private static final Logger log = LoggerFactory.getLogger(MockInterviewServiceImpl.class);
+
     private static final int MAX_FOLLOW_UP_COUNT = 2;
     private static final String MAIN_TURN = "MAIN";
     private static final String FOLLOW_UP_TURN = "FOLLOW_UP";
     private static final String ACTIVE_STATUS = "ACTIVE";
     private static final String COMPLETED_STATUS = "COMPLETED";
+    private static final String ENDED_EARLY_STATUS = "ENDED_EARLY";
 
     private final MockInterviewSessionMapper sessionMapper;
     private final MockInterviewTurnMapper turnMapper;
     private final ResumeService resumeService;
     private final UserAiPreferenceService userAiPreferenceService;
     private final AiService aiService;
+    private final MockInterviewReviewService mockInterviewReviewService;
 
     public MockInterviewServiceImpl(
             MockInterviewSessionMapper sessionMapper,
             MockInterviewTurnMapper turnMapper,
             ResumeService resumeService,
             UserAiPreferenceService userAiPreferenceService,
-            AiService aiService) {
+            AiService aiService,
+            MockInterviewReviewService mockInterviewReviewService) {
         this.sessionMapper = sessionMapper;
         this.turnMapper = turnMapper;
         this.resumeService = resumeService;
         this.userAiPreferenceService = userAiPreferenceService;
         this.aiService = aiService;
+        this.mockInterviewReviewService = mockInterviewReviewService;
     }
 
     @Override
@@ -62,6 +72,7 @@ public class MockInterviewServiceImpl implements MockInterviewService {
         MockInterviewSession session = new MockInterviewSession();
         session.setUserId(userId);
         session.setResumeId(resume.getId());
+        session.setResumeFileNameSnapshot(resume.getOriginalFileName());
         session.setTargetPosition(targetPosition.trim());
         session.setTargetCompany(normalizeOptionalText(targetCompany));
         session.setInterviewRound(interviewRound);
@@ -80,6 +91,27 @@ public class MockInterviewServiceImpl implements MockInterviewService {
     public MockInterviewSessionResponse getSession(Long userId, Long sessionId) {
         MockInterviewSession session = getOwnedSession(userId, sessionId);
         return toSessionResponse(session, getTurns(sessionId));
+    }
+
+    @Override
+    public List<ActiveMockInterviewResponse> getActiveSessions(Long userId) {
+        requireUser(userId);
+        return sessionMapper.selectList(new LambdaQueryWrapper<MockInterviewSession>()
+                        .eq(MockInterviewSession::getUserId, userId)
+                        .eq(MockInterviewSession::getStatus, ACTIVE_STATUS)
+                        .orderByDesc(MockInterviewSession::getCreateTime))
+                .stream()
+                .map(session -> new ActiveMockInterviewResponse(
+                        session.getId(),
+                        session.getResumeId(),
+                        session.getResumeFileNameSnapshot(),
+                        session.getTargetPosition(),
+                        session.getInterviewRound(),
+                        session.getQuestionCount(),
+                        session.getQuestionLimit() == null
+                                ? questionLimitFor(session.getInterviewRound()) : session.getQuestionLimit(),
+                        session.getCreateTime()))
+                .toList();
     }
 
     @Override
@@ -176,8 +208,11 @@ public class MockInterviewServiceImpl implements MockInterviewService {
     public MockInterviewSessionResponse finishSession(Long userId, Long sessionId) {
         MockInterviewSession session = getActiveSession(userId, sessionId);
         List<MockInterviewTurn> turns = getTurns(sessionId);
-        if (turns.stream().noneMatch(turn -> turn.getUserAnswer() != null)) {
-            throw new BusinessException(409, "至少回答一道题后才能结束本轮面试");
+        int questionLimit = session.getQuestionLimit() == null
+                ? questionLimitFor(session.getInterviewRound()) : session.getQuestionLimit();
+        MockInterviewTurn currentTurn = latestTurn(turns);
+        if (session.getQuestionCount() < questionLimit || currentTurn == null || currentTurn.getUserAnswer() == null) {
+            throw new BusinessException(409, "请完成本轮全部主问题后再生成面试总结；如需中途离开，请选择提前结束面试");
         }
         EffectiveAiModel aiModel = userAiPreferenceService.resolveAvailableModel(session.getAiModelId());
         session.setSummary(aiService.generateMockInterviewSummary(
@@ -189,7 +224,22 @@ public class MockInterviewServiceImpl implements MockInterviewService {
         session.setStatus(COMPLETED_STATUS);
         session.setFinishedTime(LocalDateTime.now());
         sessionMapper.updateById(session);
+        try {
+            mockInterviewReviewService.generateReview(userId, sessionId);
+        } catch (RuntimeException exception) {
+            log.warn("mock_interview_review_generation_failed sessionId={} exception={}", sessionId,
+                    exception.getClass().getSimpleName());
+        }
         return toSessionResponse(session, turns);
+    }
+
+    @Override
+    public MockInterviewSessionResponse endSessionEarly(Long userId, Long sessionId) {
+        MockInterviewSession session = getActiveSession(userId, sessionId);
+        session.setStatus(ENDED_EARLY_STATUS);
+        session.setFinishedTime(LocalDateTime.now());
+        sessionMapper.updateById(session);
+        return toSessionResponse(session, getTurns(sessionId));
     }
 
     private MockInterviewTurn createQuestion(

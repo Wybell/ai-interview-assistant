@@ -137,6 +137,22 @@ repository-root/
 
 当前最高优先级：在腾讯云服务器创建外部 `.env` 与 `application-prod.properties`，上传后端部署文件，启动 MySQL、Redis 和后端容器，再部署 Nginx 前端与 HTTPS。
 
+## 模拟面试结束与简历删除（2026-08-13）
+
+- `V11__preserve_mock_interview_history_when_deleting_resume.sql` 将 `mock_interview_session.resume_id` 改为可空并使用 `ON DELETE SET NULL`，同时保存简历文件名快照。因此删除简历只会删除私有原文件和简历记录，不会删除历史题目、回答、评分或总结。
+- `V12__add_abandoned_mock_interview_status.sql` 扩展会话状态为 `ACTIVE`、`COMPLETED` 和 `ENDED_EARLY`。`COMPLETED` 仅用于完成本轮全部主问题并生成总结；中途离开使用 `ENDED_EARLY`，保留已有记录但不可继续答题。
+- `POST /api/mock-interviews/{sessionId}/end` 只允许当前用户结束其 `ACTIVE` 会话；`GET /api/mock-interviews/active` 返回当前用户遗留的进行中会话，便于在重新进入设置页后继续或结束。
+- 仅 `ACTIVE` 会话仍会阻止删除对应简历。正常完成和提前结束均可删除简历，历史记录依靠简历文件名快照保留可读上下文。
+- 本轮源码验证：后端完整回归 114 tests passed；`MockInterviewServiceImplTest` 覆盖提前结束和已结束会话保护；前端 ESLint、11 个 Vitest、生产构建通过。V12 本地迁移和浏览器手工验证仍需完成。
+
+## 模拟面试复盘（2026-08-13）
+
+- `V13__add_mock_interview_review.sql` 新增每轮面试一份的结构化复盘记录，包含答题/主问题/追问数量、平均分、整体反馈、优势、优先改进项与训练建议；会话删除时复盘随会话级联删除。
+- `MockInterviewReviewService` 独立负责会话归属与结束状态校验、客观统计、面试转录组装、AI JSON 解析及持久化。复盘只允许访问当前用户已结束的会话，且至少需要一条回答。
+- 正常完成会话后会自动尝试生成复盘。若外部 AI 超时或返回异常，面试仍保持已完成，用户可从复盘页手动重试；提前结束的会话仅在用户主动点击生成时调用 AI。
+- 新增受 JWT 保护的 `GET /api/mock-interviews/reviews`、`GET /api/mock-interviews/{sessionId}/review` 和 `POST /api/mock-interviews/{sessionId}/review`。简历删除不影响复盘读取，复盘使用会话与题目快照数据。
+- 本轮源码验证：后端完整回归 118 tests passed；前端 ESLint、12 个 Vitest、生产构建通过。V13 本地迁移和浏览器手工验证仍需完成。
+
 ## 长期目标技术栈
 
 目标是逐步完善为成熟单体项目，后续可演进到微服务：
@@ -1053,8 +1069,11 @@ Current highest priority: rebuild or restart the local backend with Redis availa
 - The endpoint returns only the existing server-side extracted text, file name, and content type. It does not expose the original file as a public URL.
 - The mock-interview resume list now provides a `查看简历` icon action. It fetches the selected resume only when opened and renders the content as plain text in a responsive drawer.
 - Added service coverage for owned and non-owned preview requests and frontend coverage for the protected preview route. Full backend regression passed with 105 tests, 0 failures, and 0 errors; frontend ESLint, 9 Vitest tests, and production build passed.
+- Resume deletion preserves completed mock-interview history. `V11` changes the session-to-resume foreign key to `ON DELETE SET NULL`, backfills a file-name snapshot, and blocks deletion only while the current user has an active session using that resume. The frontend explains that only the private resume file is removed.
+- AI prompt construction now appends a single prompt-injection guard to ordinary question generation, knowledge-base generation, scoring, mock-interview questions, follow-ups, and summaries. User-controlled text is explicitly treated as data rather than instructions; tests cover malicious candidate answers, knowledge-base content, and resume content.
+- Added `V11__allow_cascading_mock_interview_deletion.sql`: follow-up turns now set `parent_turn_id` to `NULL` when their parent main turn is removed. This prevents the self-referencing foreign key from blocking a resume deletion that cascades through a mock-interview session.
 
-Current highest priority: rebuild or restart the local backend, refresh the mock-interview page, and manually verify the resume drawer with a PDF, DOCX, or TXT resume before any deployment or push.
+Current highest priority: rebuild the local backend so Flyway applies V11, then verify completed-interview history is retained after resume deletion and active-interview deletion is rejected before any deployment or push.
 
 ## Documentation and Production Release (2026-08-12)
 

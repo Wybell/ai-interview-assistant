@@ -15,6 +15,7 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -110,12 +111,15 @@ public class ResumeServiceImpl implements ResumeService {
     }
 
     @Override
+    @Transactional
     public void delete(Long userId, Long resumeId) {
         ResumeDocument document = getOwnedResume(userId, resumeId);
-        Long sessionCount = mockInterviewSessionMapper.selectCount(new LambdaQueryWrapper<MockInterviewSession>()
-                .eq(MockInterviewSession::getResumeId, resumeId));
-        if (sessionCount != null && sessionCount > 0) {
-            throw new BusinessException(409, "Resume is used by an interview record and cannot be deleted");
+        Long activeSessionCount = mockInterviewSessionMapper.selectCount(new LambdaQueryWrapper<MockInterviewSession>()
+                .eq(MockInterviewSession::getResumeId, resumeId)
+                .eq(MockInterviewSession::getUserId, userId)
+                .eq(MockInterviewSession::getStatus, "ACTIVE"));
+        if (activeSessionCount != null && activeSessionCount > 0) {
+            throw new BusinessException(409, "该简历正在用于进行中的模拟面试，请先完成或结束本轮面试后再删除");
         }
         resumeDocumentMapper.deleteById(document.getId());
         deleteQuietly(Path.of(document.getStoragePath()));

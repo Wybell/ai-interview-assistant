@@ -13,6 +13,7 @@ import com.example.aiinterviewassistant.mapper.UserMapper;
 import com.example.aiinterviewassistant.mapper.KnowledgeTopicMapper;
 import com.example.aiinterviewassistant.mapper.KnowledgeQuestionMapper;
 import com.example.aiinterviewassistant.mapper.MockInterviewSessionMapper;
+import com.example.aiinterviewassistant.mapper.MockInterviewReviewMapper;
 import com.example.aiinterviewassistant.mapper.MockInterviewTurnMapper;
 import com.example.aiinterviewassistant.mapper.ResumeDocumentMapper;
 import com.example.aiinterviewassistant.sse.InterviewScoreSseAdapter;
@@ -82,6 +83,9 @@ class SecurityApiTest {
 
     @MockBean
     private MockInterviewSessionMapper mockInterviewSessionMapper;
+
+    @MockBean
+    private MockInterviewReviewMapper mockInterviewReviewMapper;
 
     @MockBean
     private MockInterviewTurnMapper mockInterviewTurnMapper;

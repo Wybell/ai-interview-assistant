@@ -2,6 +2,9 @@ package com.example.aiinterviewassistant.service;
 
 import com.example.aiinterviewassistant.dto.MockInterviewSessionResponse;
 import com.example.aiinterviewassistant.dto.MockInterviewTurnResponse;
+import com.example.aiinterviewassistant.dto.ActiveMockInterviewResponse;
+
+import java.util.List;
 
 public interface MockInterviewService {
 
@@ -14,6 +17,8 @@ public interface MockInterviewService {
 
     MockInterviewSessionResponse getSession(Long userId, Long sessionId);
 
+    List<ActiveMockInterviewResponse> getActiveSessions(Long userId);
+
     MockInterviewTurnResponse answerTurn(Long userId, Long sessionId, Long turnId, String answer);
 
     MockInterviewTurnResponse generateNextQuestion(Long userId, Long sessionId);
@@ -21,4 +26,6 @@ public interface MockInterviewService {
     MockInterviewTurnResponse generateFollowUpQuestion(Long userId, Long sessionId, Long turnId);
 
     MockInterviewSessionResponse finishSession(Long userId, Long sessionId);
+
+    MockInterviewSessionResponse endSessionEarly(Long userId, Long sessionId);
 }
