@@ -1073,3 +1073,15 @@ Current highest priority: complete a real browser acceptance pass on the cloud e
 - On the completed-session screen, `再来一场` returns to setup while retaining the prior role, company, and stage; `重新设置` returns to setup with role and company cleared and stage reset to `FIRST`.
 - Verification passed: backend Surefire reports contain 107 tests with 0 failures, 0 errors, and 0 skipped while Flyway was disabled; frontend lint, 10 Vitest tests, and production build passed.
 - Manual local verification remains required: rebuild the backend with Flyway enabled so V9 is applied, then verify company and blank-company interview flows plus both return-to-setup actions. Do not deploy or push until this smoke test passes.
+
+## Mock Interview Experience Upgrade (2026-08-13)
+
+- Added Flyway V10 for configurable mock-interview question limits and the `HR` round. Defaults are 8 main questions for the first technical round, 12 for the deep technical round, 10 for the comprehensive/cross round, and 4 for the HR communication round.
+- Main questions and follow-ups are now distinct persisted turns. Each main question supports at most two follow-ups; follow-ups do not increase the main-question count and cannot themselves be followed up.
+- Added the authenticated follow-up endpoint `POST /api/mock-interviews/{sessionId}/turns/{turnId}/follow-up`. The service requires the current turn to be answered and prevents answering or skipping historical turns.
+- Added HR-specific Chinese question guidance and a separate follow-up prompt. The AI is instructed to return one question, avoid invented resume facts, and never claim access to a company's internal interview information.
+- The Vue mock-interview page now supports the fourth round, dynamic question limits, main-question/follow-up labels, follow-up and next-question actions, Chinese completion guidance, and browser Web Speech API voice-to-text input with graceful unsupported/permission-error handling.
+- Resume upload validation is now 10 MB in both frontend and backend, including Spring multipart configuration. The login footer now uses the clearer `没有账号？立即注册` wording; authentication errors remain intentionally non-enumerating.
+- Verification on 2026-08-13: backend full regression passed with 109 tests, frontend Vitest passed with 10 tests, ESLint passed, and the frontend production build passed. Flyway V10 has not been applied to the local or cloud database yet; manual authenticated smoke testing remains before release.
+
+Current highest priority: apply V10 only during the user's controlled local test, then manually verify all four rounds, two follow-ups per main question, the question-limit completion state, 10 MB resume boundary, and Chrome/Edge voice input. Do not push or deploy until the user confirms the local test passes.
