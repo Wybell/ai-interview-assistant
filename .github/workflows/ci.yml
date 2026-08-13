@@ -16,6 +16,28 @@ jobs:
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: interview_db
+          MYSQL_ROOT_PASSWORD: ci-test-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -pci-test-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
     defaults:
       run:
         working-directory: backend
@@ -24,16 +46,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
           cache: maven
 
       - name: Run backend tests
+        env:
+          MYSQL_URL: jdbc:mysql://127.0.0.1:3306/interview_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf-8
+          MYSQL_USERNAME: root
+          MYSQL_PASSWORD: ci-test-password
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: "6379"
+          JWT_SECRET: ci-only-jwt-secret-must-be-at-least-32-bytes-long
+          FLYWAY_ENABLED: "true"
         run: |
           chmod +x mvnw
-          ./mvnw -Dspring.flyway.enabled=false test
+          ./mvnw test
 
   frontend:
     name: Frontend Checks
