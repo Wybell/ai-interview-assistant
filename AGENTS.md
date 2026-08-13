@@ -1104,3 +1104,12 @@ Current highest priority: complete a real browser acceptance pass on the cloud e
 - Verification on 2026-08-13: backend full regression passed with 109 tests, frontend Vitest passed with 10 tests, ESLint passed, and the frontend production build passed. Flyway V10 has not been applied to the local or cloud database yet; manual authenticated smoke testing remains before release.
 
 Current highest priority: apply V10 only during the user's controlled local test, then manually verify all four rounds, two follow-ups per main question, the question-limit completion state, 10 MB resume boundary, and Chrome/Edge voice input. Do not push or deploy until the user confirms the local test passes.
+
+## CI and Manual Deployment (2026-08-13)
+
+- Added GitHub Actions CI in `.github/workflows/ci.yml`. Every push to `main` and pull request targeting `main` runs backend Maven tests with Flyway disabled, plus frontend install, lint, Vitest, and production build checks.
+- Added manual-only GitHub Actions production deployment in `.github/workflows/deploy-production.yml`. It requires an explicit confirmation and uses GitHub Environment `production` plus SSH secrets; it does not deploy automatically after a push.
+- Added `scripts/deploy-production.sh`. The server script verifies the exact GitHub commit, requires a clean `main` checkout and existing external config, creates a MySQL dump before release, rebuilds the Compose application, and verifies protected backend `401` plus frontend `200` through loopback.
+- Added `docs/ci-cd.md` with the one-time GitHub Secret and server SSH setup, daily release steps, and recovery boundaries. Credentials, external configuration, database contents, and SSH private keys remain outside Git.
+
+Current highest priority: run the one-time GitHub Actions-to-Tencent Cloud SSH setup and create the five repository secrets, then push the CI/CD files and validate CI using a harmless commit before the first manual production deployment.

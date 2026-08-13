@@ -1,0 +1,71 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Confirm that the main branch CI run is green and this release should deploy.
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy main to Tencent Cloud
+    if: ${{ inputs.confirm }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Resolve release revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure deployment SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.TENCENT_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.TENCENT_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: Upload deployment script
+        env:
+          SSH_HOST: ${{ secrets.TENCENT_SSH_HOST }}
+          SSH_PORT: ${{ secrets.TENCENT_SSH_PORT }}
+          SSH_USER: ${{ secrets.TENCENT_SSH_USER }}
+        run: |
+          test -n "$SSH_HOST"
+          test -n "$SSH_PORT"
+          test -n "$SSH_USER"
+          scp -P "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            scripts/deploy-production.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/ai-interview-deploy-production.sh"
+
+      - name: Deploy release
+        env:
+          SSH_HOST: ${{ secrets.TENCENT_SSH_HOST }}
+          SSH_PORT: ${{ secrets.TENCENT_SSH_PORT }}
+          SSH_USER: ${{ secrets.TENCENT_SSH_USER }}
+          RELEASE_SHA: ${{ steps.revision.outputs.sha }}
+        run: |
+          ssh -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "bash /tmp/ai-interview-deploy-production.sh '$RELEASE_SHA'"
