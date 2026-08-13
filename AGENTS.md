@@ -1107,10 +1107,17 @@ Current highest priority: apply V10 only during the user's controlled local test
 
 ## CI and Manual Deployment (2026-08-13)
 
-- Added GitHub Actions CI in `.github/workflows/ci.yml`. Every push to `main` and pull request targeting `main` runs backend Maven tests with Flyway disabled, plus frontend install, lint, Vitest, and production build checks.
+- Added GitHub Actions CI in `.github/workflows/ci.yml`. Every push to `main` and pull request targeting `main` starts isolated MySQL 8 and Redis services, runs backend Flyway migrations plus Maven tests with non-sensitive CI placeholders, and runs frontend install, lint, Vitest, and production build checks.
 - Added manual-only GitHub Actions production deployment in `.github/workflows/deploy-production.yml`. It requires an explicit confirmation and uses GitHub Environment `production` plus SSH secrets; it does not deploy automatically after a push.
 - Added `scripts/deploy-production.sh`. The server script verifies the exact GitHub commit, requires a clean `main` checkout and existing external config, creates a MySQL dump before release, rebuilds the Compose application, and verifies protected backend `401` plus frontend `200` through loopback.
 - Added `docs/ci-cd.md` with the one-time GitHub Secret and server SSH setup, daily release steps, and recovery boundaries. Credentials, external configuration, database contents, and SSH private keys remain outside Git.
 - CI backend verification now starts isolated GitHub Runner MySQL 8 and Redis service containers, enables Flyway against that empty database, and injects only non-sensitive CI placeholder values. This avoids depending on a developer's local configuration, database, Redis, JWT secret, or AI credentials.
 
-Current highest priority: run the one-time GitHub Actions-to-Tencent Cloud SSH setup and create the five repository secrets, then push the CI/CD files and validate CI using a harmless commit before the first manual production deployment.
+## CI/CD Production Verification (2026-08-13)
+
+- GitHub repository secrets and the dedicated Actions-to-Tencent Cloud SSH key are configured. The `ubuntu` deployment account can read external application configuration, use Docker Compose, and write only to the dedicated database-backup directory.
+- CI was verified on GitHub for commit `9f4440d`: backend tests completed against isolated MySQL 8 and Redis; frontend checks completed successfully.
+- The first manual production deployment succeeded for commit `9f4440d`. It created `/opt/ai-interview/config/backups/database/20260813-194628/interview_db.sql`, updated the server checkout, recreated the application frontend/backend containers, and verified loopback frontend `200` plus protected backend `401`.
+- The running production Compose services are `ai-interview-frontend`, `ai-interview-backend`, `ai-interview-mysql`, and `ai-interview-redis`. The unrelated EventFlow services were not changed.
+
+Current highest priority: keep the deployed application stable, perform browser-level acceptance after concrete product changes, and use the GitHub CI then manual Deploy Production workflow for subsequent releases.

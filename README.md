@@ -12,19 +12,20 @@
 - 知识库题目按用户、方向、语言和专题在 Redis 中保留近期历史，优先生成未出现过的题目。
 - 单题生成、上一题/下一题浏览、SSE 流式评分、错题本和学习进度。
 - PDF、DOCX、TXT 简历上传与私有预览；简历仅保存在服务端挂载目录，不公开原始文件 URL。
-- 一次只出一题的模拟面试：支持初轮技术面、深入技术面、综合终面，支持目标公司风格模拟、逐题评分与最终报告。
-- Flyway 管理 MySQL 表结构迁移；Docker Compose 管理后端、前端、MySQL 和 Redis；宿主机 Nginx 提供访问入口。
+- 一次只出一题的模拟面试：支持初轮技术面、深入技术面、综合终面、HR 沟通面；支持每道主问题最多两次追问、目标公司风格模拟、语音转文字、提前结束与 AI 复盘报告。
+- PDF、DOCX、TXT 简历上传上限为 10 MB；删除简历时保留已结束模拟面试的历史记录。
+- Flyway 管理 MySQL 表结构迁移；Docker Compose 管理后端、前端、MySQL 和 Redis；宿主机 Nginx 提供访问入口；GitHub Actions 自动执行 CI，人工确认后执行生产 CD。
 
 ## 技术栈
 
-| 范围 | 技术 |
-| --- | --- |
-| 后端 | Java 17, Spring Boot 2.7, Maven, MyBatis-Plus |
-| 数据与缓存 | MySQL 8, Redis, Flyway |
-| 安全 | Spring Security, JWT, BCrypt |
-| AI 接入 | DeepSeek Chat Completions, OpenAI Responses-compatible custom provider |
-| 前端 | Vue 3, Vite, TypeScript, Pinia, Axios, Element Plus, Lucide |
-| 测试与交付 | JUnit 5, Mockito, MockMvc, Vitest, Docker, Docker Compose, Nginx |
+| 范围       | 技术                                                                             |
+| ---------- | -------------------------------------------------------------------------------- |
+| 后端       | Java 17, Spring Boot 2.7, Maven, MyBatis-Plus                                    |
+| 数据与缓存 | MySQL 8, Redis, Flyway                                                           |
+| 安全       | Spring Security, JWT, BCrypt                                                     |
+| AI 接入    | DeepSeek Chat Completions, OpenAI Responses-compatible custom provider           |
+| 前端       | Vue 3, Vite, TypeScript, Pinia, Axios, Element Plus, Lucide                      |
+| 测试与交付 | JUnit 5, Mockito, MockMvc, Vitest, GitHub Actions, Docker, Docker Compose, Nginx |
 
 ## 架构
 
@@ -46,6 +47,7 @@ flowchart LR
 
 - [当前架构说明](docs/current-architecture.md)
 - [部署与验收手册](docs/deployment-and-acceptance.md)
+- [GitHub CI 与手动发布](docs/ci-cd.md)
 
 ## 仓库结构
 
@@ -110,15 +112,15 @@ pnpm test:run
 pnpm build
 ```
 
-最近一次完整验证：后端 107 个测试通过；前端 ESLint、10 个 Vitest 测试与生产构建通过。
+最近一次完整验证：GitHub Actions CI 在临时 MySQL 8、Redis 环境中通过后端 118 个测试；前端 ESLint、12 个 Vitest 测试与生产构建通过。
 
 ## 生产发布原则
 
-1. 先备份服务器外部配置和 `interview_db`。
-2. 用 `git pull --ff-only origin main` 拉取已验证版本。
-3. 使用 `backend/docker-compose.prod.yml` 重建后端和前端。
-4. 由 Flyway 自动应用新迁移，禁止手工执行已纳入迁移的 SQL。
-5. 检查容器、Flyway 日志、Nginx 配置和关键用户流程。
+1. 推送 `main` 后等待 GitHub Actions 的 Continuous Integration 通过。
+2. 在 GitHub Actions 手动运行 Deploy Production 并确认发布。
+3. 工作流自动备份 `interview_db`、校验提交版本、重建容器并检查前端 `200` 与后端 `401`。
+4. Flyway 自动应用新迁移，禁止手工执行已纳入迁移的 SQL。
+5. 发布后完成浏览器关键用户流程验收；仅在工作流不可用时使用部署手册的服务器命令排障。
 
 完整命令与验收清单见 [部署与验收手册](docs/deployment-and-acceptance.md)。
 
