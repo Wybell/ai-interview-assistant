@@ -83,7 +83,7 @@ async function handleSubmit(): Promise<void> {
       </form>
 
       <p class="auth-card__footer">
-        还没有账号？<RouterLink :to="{ name: 'register' }">创建账号</RouterLink>
+        没有账号？<RouterLink :to="{ name: 'register' }">立即注册</RouterLink>
       </p>
     </section>
   </main>

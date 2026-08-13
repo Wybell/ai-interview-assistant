@@ -29,6 +29,16 @@ export function getNextMockInterviewQuestion(sessionId: number): Promise<MockInt
   });
 }
 
+export function getFollowUpMockInterviewQuestion(
+  sessionId: number,
+  turnId: number,
+): Promise<MockInterviewTurn> {
+  return request<MockInterviewTurn>({
+    url: `/mock-interviews/${sessionId}/turns/${turnId}/follow-up`,
+    method: 'post',
+  });
+}
+
 export function finishMockInterview(sessionId: number): Promise<MockInterviewSession> {
   return request<MockInterviewSession>({
     url: `/mock-interviews/${sessionId}/finish`,

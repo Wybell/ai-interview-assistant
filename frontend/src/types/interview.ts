@@ -78,11 +78,14 @@ export interface ResumePreview {
   content: string;
 }
 
-export type InterviewRound = 'FIRST' | 'SECOND' | 'THIRD';
+export type InterviewRound = 'FIRST' | 'SECOND' | 'THIRD' | 'HR';
 
 export interface MockInterviewTurn {
   id: number;
   sequenceNo: number;
+  turnType: 'MAIN' | 'FOLLOW_UP';
+  parentTurnId: number | null;
+  followUpNo: number | null;
   question: string;
   userAnswer: string | null;
   score: number | null;
@@ -98,6 +101,7 @@ export interface MockInterviewSession {
   interviewRound: InterviewRound;
   status: 'ACTIVE' | 'COMPLETED';
   questionCount: number;
+  questionLimit: number;
   aiModelId: number;
   summary: string | null;
   createTime: string;

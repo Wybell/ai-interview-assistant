@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ArrowRight, Eye, FileText, Play, Send, Trash2, Upload } from '@lucide/vue';
-import { computed, onMounted, ref } from 'vue';
+import { ArrowRight, Eye, FileText, Mic, MicOff, Play, Send, Trash2, Upload } from '@lucide/vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import {
   answerMockInterviewTurn,
   createMockInterview,
   finishMockInterview,
+  getFollowUpMockInterviewQuestion,
   getNextMockInterviewQuestion,
 } from '@/api/mock-interview-api';
 import { deleteResume, getResumes, previewResume, uploadResume } from '@/api/resume-api';
@@ -32,23 +33,82 @@ const previewVisible = ref(false);
 const previewLoading = ref(false);
 const previewError = ref('');
 const previewDocument = ref<ResumePreview | null>(null);
+const speechError = ref('');
+const isListening = ref(false);
+
+interface SpeechRecognitionEventLike extends Event {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: { length: number; [index: number]: { transcript: string } };
+  };
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: Event & { error?: string }) => void) | null;
+  onend: (() => void) | null;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
+let speechRecognition: SpeechRecognitionLike | null = null;
 
 const currentTurn = computed(() => session.value?.turns.at(-1) ?? null);
 const currentTurnAnswered = computed(() => Boolean(currentTurn.value?.userAnswer));
+const currentMainTurn = computed(() => {
+  if (!currentTurn.value || !session.value) return null;
+  return currentTurn.value.turnType === 'MAIN'
+    ? currentTurn.value
+    : session.value.turns.find((turn) => turn.id === currentTurn.value?.parentTurnId) ?? null;
+});
+const followUpAvailable = computed(() => {
+  const mainTurn = currentMainTurn.value;
+  return Boolean(
+    mainTurn &&
+      currentTurnAnswered.value &&
+      session.value?.status === 'ACTIVE' &&
+      session.value.turns.filter((turn) => turn.parentTurnId === mainTurn.id).length < 2,
+  );
+});
+const roundCompletionHint = computed(() => {
+  if (!session.value || !currentTurnAnswered.value || session.value.questionCount < session.value.questionLimit) {
+    return '';
+  }
+  return currentTurn.value?.turnType === 'FOLLOW_UP' && currentTurn.value.followUpNo === 2
+    ? '本轮面试已完成，当前问题已完成两次追问。请结束本轮并生成总结。'
+    : '本轮主问题已完成，可以继续追问当前问题，或结束本轮并生成总结。';
+});
 const roundLabels: Record<InterviewRound, string> = {
   FIRST: '初轮技术面',
   SECOND: '深入技术面',
   THIRD: '综合终面',
+  HR: 'HR 沟通面',
 };
 const roundDescriptions: Record<InterviewRound, string> = {
   FIRST: '简历核验、基础知识、项目概述与表达沟通',
   SECOND: '项目深挖、原理、排障、技术取舍与场景追问',
   THIRD: '系统设计、业务理解、协作、责任意识与决策判断',
+  HR: '求职动机、岗位匹配、职业规划、沟通协作与到岗安排',
 };
 const roundOptions: Array<{ value: InterviewRound; label: string; description: string }> = [
   { value: 'FIRST', label: '初轮技术面', description: '简历核验、基础知识、项目概述与表达沟通' },
   { value: 'SECOND', label: '深入技术面', description: '项目深挖、原理、排障、技术取舍与场景追问' },
   { value: 'THIRD', label: '综合终面', description: '系统设计、业务理解、协作、责任意识与决策判断' },
+  { value: 'HR', label: 'HR 沟通面', description: '求职动机、岗位匹配、职业规划、沟通协作与到岗安排' },
 ];
 
 function getErrorMessage(requestError: unknown, fallback: string): string {
@@ -75,8 +135,8 @@ async function handleFileChange(event: Event): Promise<void> {
   const file = input.files?.[0];
   input.value = '';
   if (!file) return;
-  if (file.size > 2 * 1024 * 1024) {
-    error.value = '简历文件不能超过 2 MB';
+  if (file.size > 10 * 1024 * 1024) {
+    error.value = '简历文件不能超过 10 MB';
     return;
   }
   uploadLoading.value = true;
@@ -150,6 +210,51 @@ function replaceTurn(updatedTurn: MockInterviewTurn): void {
   };
 }
 
+function appendSpeechText(text: string): void {
+  const normalized = text.trim();
+  if (!normalized) return;
+  answerDraft.value = answerDraft.value.trim()
+    ? `${answerDraft.value.trim()} ${normalized}`
+    : normalized;
+}
+
+function toggleSpeechInput(): void {
+  if (isListening.value) {
+    speechRecognition?.stop();
+    return;
+  }
+  const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+  if (!Recognition) {
+    speechError.value = '当前浏览器不支持语音转文字，请使用 Chrome 或 Edge';
+    return;
+  }
+  speechError.value = '';
+  speechRecognition = new Recognition();
+  speechRecognition.lang = 'zh-CN';
+  speechRecognition.interimResults = false;
+  speechRecognition.continuous = true;
+  speechRecognition.onresult = (event) => {
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      appendSpeechText(event.results[index][0].transcript);
+    }
+  };
+  speechRecognition.onerror = (event) => {
+    speechError.value = event.error === 'not-allowed'
+      ? '麦克风权限被拒绝，请在浏览器设置中允许使用麦克风'
+      : '语音识别失败，请重试或直接输入';
+    isListening.value = false;
+  };
+  speechRecognition.onend = () => {
+    isListening.value = false;
+  };
+  try {
+    speechRecognition.start();
+    isListening.value = true;
+  } catch {
+    speechError.value = '语音识别启动失败，请重试或直接输入';
+  }
+}
+
 async function scoreAnswer(): Promise<void> {
   if (!session.value || !currentTurn.value || !answerDraft.value.trim()) {
     error.value = '请完成当前问题的回答';
@@ -179,12 +284,31 @@ async function continueInterview(): Promise<void> {
     const nextTurn = await getNextMockInterviewQuestion(session.value.id);
     session.value = {
       ...session.value,
-      questionCount: nextTurn.sequenceNo,
+      questionCount: session.value.questionCount + 1,
       turns: [...session.value.turns, nextTurn],
     };
     answerDraft.value = '';
   } catch (requestError) {
     error.value = getErrorMessage(requestError, '下一题生成失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function followUpInterview(): Promise<void> {
+  if (!session.value || !currentTurn.value) return;
+  const mainTurn = currentTurn.value.turnType === 'MAIN'
+    ? currentTurn.value
+    : session.value.turns.find((turn) => turn.id === currentTurn.value?.parentTurnId);
+  if (!mainTurn) return;
+  loading.value = true;
+  error.value = '';
+  try {
+    const followUp = await getFollowUpMockInterviewQuestion(session.value.id, mainTurn.id);
+    session.value = { ...session.value, turns: [...session.value.turns, followUp] };
+    answerDraft.value = '';
+  } catch (requestError) {
+    error.value = getErrorMessage(requestError, '追问生成失败');
   } finally {
     loading.value = false;
   }
@@ -220,6 +344,7 @@ function returnToSetup(resetScenario: boolean): void {
 }
 
 onMounted(() => void loadResumes());
+onBeforeUnmount(() => speechRecognition?.abort());
 </script>
 
 <template>
@@ -230,7 +355,7 @@ onMounted(() => void loadResumes());
         <p>基于个人简历，以不同轮次完成连续的岗位面试训练。</p>
       </div>
       <span v-if="session" class="session-status">{{
-        session.status === 'ACTIVE' ? `进行中 · ${session.questionCount}/8 题` : '已完成'
+        session.status === 'ACTIVE' ? `进行中 · ${session.questionCount}/${session.questionLimit} 道主问题` : '已完成'
       }}</span>
     </header>
 
@@ -290,7 +415,7 @@ onMounted(() => void loadResumes());
           </label>
         </div>
         <div v-else class="empty-message">
-          上传 PDF、DOCX 或 TXT 简历后开始模拟面试，单个文件最大 2 MB。
+          上传 PDF、DOCX 或 TXT 简历后开始模拟面试，单个文件最大 10 MB。
         </div>
       </section>
 
@@ -302,7 +427,7 @@ onMounted(() => void loadResumes());
           </div>
         </div>
         <div class="setup-form">
-          <el-form-item label="目标岗位"
+          <el-form-item label="求职岗位"
             ><el-input
               v-model="targetPosition"
               maxlength="100"
@@ -325,14 +450,14 @@ onMounted(() => void loadResumes());
             </div>
             <p class="round-description">{{ roundDescriptions[interviewRound] }}</p>
           </el-form-item>
-          <el-form-item label="目标公司（选填）" class="company-field">
+          <el-form-item label="意向公司（选填）" class="company-field">
             <el-input
               v-model="targetCompany"
               maxlength="100"
               show-word-limit
               placeholder="例如：腾讯、字节跳动、小米"
             />
-            <p class="company-description">用于公司风格模拟；未填写时按通用岗位面试进行。</p>
+            <p class="company-description">用于公司风格模拟；未填写或没有可参考信息时按通用岗位面试进行。</p>
           </el-form-item>
         </div>
         <el-button
@@ -350,7 +475,9 @@ onMounted(() => void loadResumes());
       <div class="interview-layout">
         <main class="interview-workspace">
           <section v-if="currentTurn" class="question-section">
-            <p class="section-label">第 {{ currentTurn.sequenceNo }} 题</p>
+            <p class="section-label">
+              {{ currentTurn.turnType === 'FOLLOW_UP' ? `第 ${currentTurn.sequenceNo} 题 · 追问 ${currentTurn.followUpNo}/2` : `第 ${currentTurn.sequenceNo} 道主问题` }}
+            </p>
             <h2>{{ currentTurn.question }}</h2>
           </section>
           <section v-if="currentTurn" class="answer-section">
@@ -366,6 +493,23 @@ onMounted(() => void loadResumes());
                 :disabled="loading"
                 placeholder="按真实面试表达方式组织你的回答"
               />
+              <div class="speech-actions">
+                <el-tooltip :content="isListening ? '停止语音输入' : '语音转文字'">
+                  <button
+                    type="button"
+                    class="speech-button"
+                    :class="{ 'speech-button--active': isListening }"
+                    :disabled="loading"
+                    :aria-label="isListening ? '停止语音输入' : '语音转文字'"
+                    @click="toggleSpeechInput"
+                  >
+                    <MicOff v-if="isListening" :size="17" />
+                    <Mic v-else :size="17" />
+                  </button>
+                </el-tooltip>
+                <span v-if="isListening" class="speech-status">正在听，请直接说话</span>
+                <span v-if="speechError" class="speech-error">{{ speechError }}</span>
+              </div>
               <div class="answer-actions">
                 <el-button type="primary" :icon="Send" :loading="loading" @click="scoreAnswer"
                   >提交回答</el-button
@@ -380,14 +524,22 @@ onMounted(() => void loadResumes());
               <p>{{ currentTurn.suggestion }}</p>
               <h3>参考答案</h3>
               <p>{{ currentTurn.correctAnswer }}</p>
+              <p v-if="roundCompletionHint" class="completion-hint">{{ roundCompletionHint }}</p>
               <div v-if="session.status === 'ACTIVE'" class="answer-actions">
                 <el-button
+                  v-if="followUpAvailable"
+                  :loading="loading"
+                  @click="followUpInterview"
+                  >追问这一题</el-button
+                >
+                <el-button
+                  v-if="session.questionCount < session.questionLimit"
                   type="primary"
                   :icon="ArrowRight"
                   :loading="loading"
                   @click="continueInterview"
-                  >继续面试</el-button
-                ><el-button :disabled="loading" @click="finishInterview">结束并生成总结</el-button>
+                  >下一题</el-button
+                ><el-button :disabled="loading" @click="finishInterview">结束本轮并生成总结</el-button>
               </div>
             </template>
           </section>
@@ -407,7 +559,7 @@ onMounted(() => void loadResumes());
             </div>
             <div>
               <dt>题数</dt>
-              <dd>{{ session.questionCount }}/8</dd>
+              <dd>{{ session.questionCount }}/{{ session.questionLimit }} 道主问题</dd>
             </div>
             <div v-if="session.targetCompany">
               <dt>目标公司</dt>
@@ -601,7 +753,7 @@ onMounted(() => void loadResumes());
 }
 .round-options {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 .round-option {
@@ -696,6 +848,45 @@ onMounted(() => void loadResumes());
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 6px;
+}
+.speech-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -6px;
+}
+.speech-button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.speech-button:hover,
+.speech-button--active {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+  color: var(--primary);
+}
+.speech-status,
+.speech-error {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.speech-error {
+  color: var(--danger);
+}
+.completion-hint {
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary);
+  background: var(--primary-subtle);
+  color: var(--ink-strong) !important;
 }
 .score-summary {
   display: flex;
